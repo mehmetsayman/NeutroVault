@@ -155,8 +155,8 @@ def agent_worker():
         except Exception as e:
             add_log(f"Error in main loop: {e}", "reason")
             
-        add_log("Sleeping for 15 seconds before next real data fetch...", "info")
-        time.sleep(15)
+        add_log("Sleeping for 5 seconds before next real data fetch...", "info")
+        time.sleep(5)
 
 # ------------- FASTAPI SERVER --------------
 
