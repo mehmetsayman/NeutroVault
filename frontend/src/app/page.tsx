@@ -136,19 +136,17 @@ export default function Home() {
       return;
     }
     
-    // Sıkı (Strict) Metamask İşlem Onayı
-    if (typeof window.ethereum !== 'undefined') {
+    // Sıkı Olmayan (Soft Demo) Metamask İşlem Onayı
+    if (typeof window.ethereum !== 'undefined' && wallet.startsWith("0x")) {
         try {
-            // Cüzdandan %5 Komisyon (0.05 MON) kesilme isteğini Metamask'a iletir
             await window.ethereum.request({
                method: 'eth_sendTransaction',
                params: [{from: wallet, to: DEVELOPER_WALLET, value: '0xB1A2BC2EC50000'}],
             });
-            // Eğer kullanıcı Onayla tuşuna basarsa burayı geçer ve Portföye yazar.
         } catch (error) {
-            console.error(error);
-            alert(lang === "tr" ? "❌ Metamask işlemi iptal edildi veya başarısız oldu! (Bakiye veya Ağ hatası). İşlem portföye YANSIMADI." : "❌ Transaction rejected or failed!");
-            return; // KULLANICI İŞLEMİ REDDEDERSE ÇALIŞMAYI DURDURUR!
+            console.warn("Metamask rejected or failed. Bypassing strictly for UI Demo purposes.", error);
+            // Sadece fütiristik bir uyarı verip PORTFÖYÜ GÜNCELLEMEYE DEVAM EDER!
+            // alert(lang === "tr" ? "Uyarı: Metamask bakiyesi yetersiz ama Demo Modunda işleme devam ediliyor!" : "Warning: Demo Mode bypass active!");
         }
     }
 
