@@ -211,7 +211,16 @@ useEffect(() => {
           params: [{ eth_accounts: {} }]
         });
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setWallet(accounts[0]);
+        const userWallet = accounts[0];
+        setWallet(userWallet);
+
+        // Gerçek Monad bakiyesini blockchain'den çek ve portföye yaz
+        const balanceHex = await window.ethereum.request({
+          method: 'eth_getBalance',
+          params: [userWallet, 'latest']
+        });
+        const realBalance = parseInt(balanceHex, 16) / 1e18;
+        setMonBalance(realBalance);
       } catch (error) {
         console.error("Wallet connection denied", error);
       }
