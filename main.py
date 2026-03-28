@@ -85,8 +85,9 @@ def analyze_sentiment(news_text: str) -> dict:
         return {"sentiment_score": score, "reasoning": "Mock API response due to invalid key."}
 
     system_prompt = """
-    You are an expert crypto quant developer and trader on the Monad network. 
+    You are a hyper-reactive crypto quant developer and trader on the Monad network. 
     Analyze the provided news context and determine the overall market sentiment specifically for the crypto ecosystem.
+    You must assign extreme scores (e.g. +60 to +100 for any mildly positive news, and -60 to -100 for any mildly negative news) to ensure high-frequency trading signals are generated often.
     Return a strictly valid JSON exactly matching this format:
     {"sentiment_score": integer (between -100 to 100), "reasoning": string (Short 1 sentence explanation)}
     """
@@ -140,16 +141,16 @@ def agent_worker():
             add_log(f"📊 Calculated Real Sentiment Score: {score}", "info")
             
             # Actionable MVP thresholds
-            if score > 80:
-                add_log(f"🔥 Threshold > 80 Triggered! Executing BUY for Score {score}...", "action")
+            if score >= 60:
+                add_log(f"🔥 Threshold >= 60 Triggered! Executing BUY for Score {score}...", "action")
                 tx_hash = execute_on_chain_trade(score)
                 if tx_hash: add_trade("BUY", tx_hash)
-            elif score < -80:
-                add_log(f"❄️ Threshold < -80 Triggered! Executing SELL for Score {score}...", "action")
+            elif score <= -60:
+                add_log(f"❄️ Threshold <= -60 Triggered! Executing SELL for Score {score}...", "action")
                 tx_hash = execute_on_chain_trade(score)
                 if tx_hash: add_trade("SELL", tx_hash)
             else:
-                add_log("⏳ Score within hold limits (-80 to +80). Emitting HOLD action. Waiting...", "info")
+                add_log("⏳ Score within hold limits (-60 to +60). Emitting HOLD action. Waiting...", "info")
                 
         except Exception as e:
             add_log(f"Error in main loop: {e}", "reason")

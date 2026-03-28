@@ -60,7 +60,7 @@ export default function Home() {
   const [score, setScore] = useState(0);
   const [logs, setLogs] = useState<{ id: number; text: string; type: "info" | "action" | "reason"; timestamp: string }[]>([]);
   const [trades, setTrades] = useState<{ id: number; action: string; hash: string }[]>([]);
-  
+
   const [connected, setConnected] = useState(false);
   const [wallet, setWallet] = useState<string | null>(null);
 
@@ -79,7 +79,7 @@ export default function Home() {
         const res = await fetch("http://127.0.0.1:8000/api/state");
         if (!res.ok) throw new Error("HTTP error");
         const data = await res.json();
-        
+
         setScore(data.score);
         setLogs(data.logs);
         setTrades(data.trades);
@@ -109,7 +109,7 @@ export default function Home() {
 
   // Komisyonların Yatacağı Senin Cüzdan Adresin (Geliştirici Hesabı)
   // Gerçek hayatta bu adres Akıllı Sözleşme (Contract) adresi olur. Sunum için doğrudan cüzdan yazdık.
-  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
+  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xc2F5a5783abacC24E3430768D2cCAC3Ef3cE0Db5";
 
   // User Trade Execution with Fee
   const handleRetailTrade = async () => {
@@ -117,7 +117,7 @@ export default function Home() {
       alert("Önce cüzdanınızı bağlamalısınız!");
       return;
     }
-    
+
     try {
       // 0.01 MON (%1 Komisyon bedeli) değerindeki işlemi Geliştirici cüzdanına yollar
       await window.ethereum.request({
@@ -153,23 +153,23 @@ export default function Home() {
             <p className="text-xs md:text-sm text-monad-purple/80 font-mono tracking-wider uppercase drop-shadow">{t.subtitle}</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           {/* Metamask Button */}
-          <button 
-            onClick={wallet ? () => {} : handleConnectWallet}
+          <button
+            onClick={wallet ? () => { } : handleConnectWallet}
             className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#f6851b] to-[#e2761b] text-white hover:scale-105 cursor-pointer hover:shadow-[#f6851b]/50'}`}
           >
             {wallet ? `${t.walletConnected}: ${wallet.slice(0, 6)}...` : t.connectWallet}
           </button>
 
-          <button 
+          <button
             onClick={() => setLang(lang === "en" ? "tr" : "en")}
             className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-bold transition-all cursor-pointer"
           >
             {t.toggleLang}
           </button>
-          
+
           <div className="hidden md:flex flex-col text-right ml-4">
             <span className={`text-sm font-bold tracking-widest uppercase ${connected ? "text-neon-blue" : "text-red-500"}`}>
               {connected ? t.agentOnline : t.agentOffline}
@@ -182,44 +182,44 @@ export default function Home() {
 
       {/* Main Grid */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10 w-full h-full pb-8">
-        
+
         {/* Left Column: Sentiment Dashboard */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down relative" style={{ animationDelay: '0.1s' }}>
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
             <span>📡</span> {t.brainStateTitle}
           </h2>
-          
+
           <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
             <div className="relative w-56 h-56 flex items-center justify-center drop-shadow-2xl">
               <svg className="w-full h-full transform -rotate-90 drop-shadow-lg" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                <circle cx="50" cy="50" r="45" fill="none" 
-                  stroke={score > 80 ? '#00e5ff' : score < -80 ? '#ff0055' : '#836ef9'} 
-                  strokeWidth="8" 
+                <circle cx="50" cy="50" r="45" fill="none"
+                  stroke={score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9'}
+                  strokeWidth="8"
                   strokeDasharray={`${Math.abs(score) * 2.8} 280`}
                   className="transition-all duration-1000 ease-out"
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute flex flex-col items-center p-6 rounded-full">
-                 <span className="text-5xl font-black drop-shadow-md" style={{ color: score > 80 ? '#00e5ff' : score < -80 ? '#ff0055' : 'white' }}>
-                   {score > 0 ? `+${score}` : score}
-                 </span>
-                 <span className="text-xs text-gray-400 font-mono uppercase tracking-widest mt-2 text-center">{connected ? t.sentiment : "N/A"}</span>
+                <span className="text-5xl font-black drop-shadow-md" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : 'white' }}>
+                  {score > 0 ? `+${score}` : score}
+                </span>
+                <span className="text-xs text-gray-400 font-mono uppercase tracking-widest mt-2 text-center">{connected ? t.sentiment : "N/A"}</span>
               </div>
             </div>
-            
+
             <div className="w-full bg-black/40 rounded-xl p-4 border border-white/5 text-center mt-4 shadow-inner">
-              <p className="text-sm font-bold tracking-wider" style={{ color: score > 80 ? '#00e5ff' : score < -80 ? '#ff0055' : '#836ef9' }}>
-                {!connected ? t.offline : score > 80 ? t.buySignal : score < -80 ? t.sellSignal : t.neutralSignal}
+              <p className="text-sm font-bold tracking-wider" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9' }}>
+                {!connected ? t.offline : score >= 60 ? t.buySignal : score <= -60 ? t.sellSignal : t.neutralSignal}
               </p>
             </div>
-            
+
             {/* The Huge User Retail Transaction Button triggered by AI Signal! */}
-            {(score > 80 || score < -80) && connected && (
-              <button 
+            {(score >= 60 || score <= -60) && connected && (
+              <button
                 onClick={handleRetailTrade}
-                className={`mt-4 w-full py-4 rounded-xl font-black text-white text-sm md:text-base tracking-widest uppercase transition-all duration-300 shadow-2xl animate-pulse hover:scale-105 ${score > 80 ? 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50' : 'bg-gradient-to-r from-[#ff0055] to-red-700 shadow-[#ff0055]/50'}`}
+                className={`mt-4 w-full py-4 rounded-xl font-black text-white text-sm md:text-base tracking-widest uppercase transition-all duration-300 shadow-2xl animate-pulse hover:scale-105 ${score >= 60 ? 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50' : 'bg-gradient-to-r from-[#ff0055] to-red-700 shadow-[#ff0055]/50'}`}
               >
                 {t.executeTrade}
               </button>
@@ -234,12 +234,12 @@ export default function Home() {
             <span>⚡</span> {t.logicConsole}
           </h2>
           <div className="flex-1 bg-[#030108]/80 border border-white/5 rounded-2xl p-5 font-mono text-[13px] overflow-y-auto h-96 shadow-inner" ref={scrollRef}>
-             {logs.length === 0 && connected && (
-                <div className="text-gray-500 text-center mt-10 animate-pulse">{t.waitingEngine}</div>
-             )}
-             {!connected && (
-                <div className="text-red-500/80 text-center mt-10">{t.cannotReach}</div>
-             )}
+            {logs.length === 0 && connected && (
+              <div className="text-gray-500 text-center mt-10 animate-pulse">{t.waitingEngine}</div>
+            )}
+            {!connected && (
+              <div className="text-red-500/80 text-center mt-10">{t.cannotReach}</div>
+            )}
             {logs.map(log => (
               <div key={log.id} className={`mb-4 leading-relaxed ${log.type === 'action' ? 'text-neon-blue font-bold drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]' : log.type === 'reason' ? 'text-monad-purple font-medium' : 'text-gray-400'}`}>
                 <span className="opacity-40 mr-2 text-[11px] select-none">[{log.timestamp}]</span>
@@ -254,7 +254,7 @@ export default function Home() {
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
             <span>⛓️</span> {t.onChainEx}
           </h2>
-          
+
           <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-96 pr-2">
             {trades.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-10 font-mono text-sm leading-relaxed">

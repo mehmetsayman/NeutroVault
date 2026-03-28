@@ -57,13 +57,13 @@ contract NeuroVault {
         string memory action = "HOLD";
 
         // Positive signal - Execute Buy logic (Mocked DEX router call)
-        if (sentimentScore >= 80) {
+        if (sentimentScore >= 60) {
             action = "BUY";
             // TODO (Integration): Connect to Monad DEX router
             // router.swapExactETHForTokens{value: tradeAmount}(...);
         } 
         // Negative signal - Execute Sell logic
-        else if (sentimentScore <= -80) {
+        else if (sentimentScore <= -60) {
             action = "SELL";
             // TODO (Integration): Swap available tokens, the fee is taken in native MON here before tx execution
             // router.swapExactTokensForETH(...);
