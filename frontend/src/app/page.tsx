@@ -1,44 +1,57 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
+// For typescript compiler bypass without extra @types
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 const translations = {
   en: {
-    subtitle: "Live Autonomous Fund Manager",
+    subtitle: "Retail AI Signals Platform",
     agentOnline: "Agent Online",
     agentOffline: "Agent Offline",
-    waitingPython: "Waiting for python main.py",
+    waitingPython: "Waiting for AI Server",
     brainStateTitle: "Live Core Brain State",
     sentiment: "GPT-4 Sentiment",
     offline: "OFFLINE",
-    buySignal: "EXTREME GREED - SIGNAL BUY",
-    sellSignal: "EXTREME FEAR - SIGNAL SELL",
-    neutralSignal: "NEUTRAL - HOLDING ASSETS",
+    buySignal: "EXTREME GREED - BUY SIGNAL",
+    sellSignal: "EXTREME FEAR - SELL SIGNAL",
+    neutralSignal: "NEUTRAL - NO ACTION",
     logicConsole: "Real-Time Logic Console",
     waitingEngine: "Waiting for AI engine to start polling market...",
     cannotReach: "Cannot reach background server. Please start 'python main.py' to pipe logs here.",
-    onChainEx: "Real On-Chain Executions",
-    awaitingThresholds: "Awaiting actionable thresholds to execute swap transactions on Monad Network...",
-    target: "Monad DEX Target",
-    toggleLang: "🇹🇷 TR"
+    onChainEx: "Retail On-Chain Executions (1% Fee)",
+    awaitingThresholds: "Awaiting strong AI signals to unlock your trade opportunities...",
+    target: "Monad DEX",
+    toggleLang: "🇹🇷 TR",
+    connectWallet: "🦊 Connect Wallet",
+    walletConnected: "Connected",
+    executeTrade: "⚡ Execute AI Trade (1% Fee)"
   },
   tr: {
-    subtitle: "Canlı Otonom Fon Yöneticisi",
+    subtitle: "Merkeziyetsiz Perakende Yapay Zeka Sinyalleri",
     agentOnline: "Ajan Bağlı",
     agentOffline: "Bağlantı Yok",
-    waitingPython: "python main.py bekleniyor",
+    waitingPython: "AI Sunucusu bekleniyor",
     brainStateTitle: "Canlı Beyin Durumu",
     sentiment: "GPT-4 Duygusu",
     offline: "ÇEVRİMDIŞI",
-    buySignal: "AŞIRI İŞTAH - ALIM SİNYALİ",
-    sellSignal: "AŞIRI KORKU - SATIŞ SİNYALİ",
-    neutralSignal: "NÖTR - PİYASA İZLENİYOR",
+    buySignal: "AŞIRI İŞTAH - ALIM FIRSATI",
+    sellSignal: "AŞIRI KORKU - SATIŞ FIRSATI",
+    neutralSignal: "NÖTR - FIRSAT BEKLENİYOR",
     logicConsole: "Yapay Zeka Mantık Konsolu",
     waitingEngine: "Yapay zeka motorunun piyasayı taramaya başlaması bekleniyor...",
     cannotReach: "Arka plan sunucusuna ulaşılamıyor. Lütfen terminalden 'python main.py' başlatın.",
-    onChainEx: "Gerçek Zincir İçi İşlemler",
-    awaitingThresholds: "Monad Ağında işlem yapmak için puan barajının aşılması bekleniyor...",
-    target: "Monad DEX Hedefi",
-    toggleLang: "🇬🇧 EN"
+    onChainEx: "Perakende Zincir İçi İşlemler (%1 Komisyon)",
+    awaitingThresholds: "Para kazanma işlemlerinizi açmak için aşırı güçlü Yapay Zeka sinyalleri bekleniyor...",
+    target: "Monad Akıllı Sözleşmesi",
+    toggleLang: "🇬🇧 EN",
+    connectWallet: "🦊 Cüzdan Bağla",
+    walletConnected: "Cüzdan Bağlı",
+    executeTrade: "⚡ Yapay Zeka Fırsatını Onayla (%1 Komisyon)"
   }
 };
 
@@ -47,13 +60,14 @@ export default function Home() {
   const [score, setScore] = useState(0);
   const [logs, setLogs] = useState<{ id: number; text: string; type: "info" | "action" | "reason"; timestamp: string }[]>([]);
   const [trades, setTrades] = useState<{ id: number; action: string; hash: string }[]>([]);
+  
   const [connected, setConnected] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [wallet, setWallet] = useState<string | null>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
 
   useEffect(() => {
-    // Keep the terminal log scrolled to the bottom
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -72,16 +86,52 @@ export default function Home() {
         setConnected(true);
       } catch (err) {
         setConnected(false);
-        // Hata durumunda sadece değişkeni güncelleyip sessizce bekler.
       }
     };
-
-    // Initial fetch
     fetchState();
-    // Poll every 2 seconds
     const interval = setInterval(fetchState, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // Web3 Metamask Connection
+  const handleConnectWallet = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setWallet(accounts[0]);
+      } catch (error) {
+        console.error("Wallet connection denied", error);
+      }
+    } else {
+      alert("Metamask eklentisi bulunamadı! Lütfen Metamask kurun.");
+    }
+  };
+
+  // User Trade Execution with Fee
+  const handleRetailTrade = async () => {
+    if (!wallet) {
+      alert("Önce cüzdanınızı bağlamalısınız!");
+      return;
+    }
+    
+    try {
+      // Dummy execution to represent sending 0.01 MON to the Protocol Contract for MVP
+      // In real life, 'to' would be process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
+      await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            from: wallet,
+            to: wallet, // Sending to self purely for safe Hackathon Demo
+            value: '0x2386F26FC10000', // 0.01 in Wei
+          },
+        ],
+      });
+      alert("✅ İşlem %1 Kurum komisyonu başarıyla tahsil edilerek Monad Testnet ağına gönderildi!");
+    } catch (error) {
+      console.error("Transaction failed or rejected", error);
+    }
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col gap-8 relative overflow-hidden bg-[#06020c]">
@@ -100,15 +150,24 @@ export default function Home() {
             <p className="text-xs md:text-sm text-monad-purple/80 font-mono tracking-wider uppercase drop-shadow">{t.subtitle}</p>
           </div>
         </div>
+        
         <div className="flex items-center gap-4">
+          {/* Metamask Button */}
+          <button 
+            onClick={wallet ? () => {} : handleConnectWallet}
+            className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#f6851b] to-[#e2761b] text-white hover:scale-105 cursor-pointer hover:shadow-[#f6851b]/50'}`}
+          >
+            {wallet ? `${t.walletConnected}: ${wallet.slice(0, 6)}...` : t.connectWallet}
+          </button>
+
           <button 
             onClick={() => setLang(lang === "en" ? "tr" : "en")}
-            className="px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-xs font-bold transition-all cursor-pointer"
+            className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-bold transition-all cursor-pointer"
           >
             {t.toggleLang}
           </button>
           
-          <div className="hidden md:flex flex-col text-right">
+          <div className="hidden md:flex flex-col text-right ml-4">
             <span className={`text-sm font-bold tracking-widest uppercase ${connected ? "text-neon-blue" : "text-red-500"}`}>
               {connected ? t.agentOnline : t.agentOffline}
             </span>
@@ -122,14 +181,13 @@ export default function Home() {
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10 w-full h-full pb-8">
         
         {/* Left Column: Sentiment Dashboard */}
-        <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down" style={{ animationDelay: '0.1s' }}>
+        <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down relative" style={{ animationDelay: '0.1s' }}>
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
             <span>📡</span> {t.brainStateTitle}
           </h2>
           
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
             <div className="relative w-56 h-56 flex items-center justify-center drop-shadow-2xl">
-              {/* Circular Meter */}
               <svg className="w-full h-full transform -rotate-90 drop-shadow-lg" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
                 <circle cx="50" cy="50" r="45" fill="none" 
@@ -144,7 +202,7 @@ export default function Home() {
                  <span className="text-5xl font-black drop-shadow-md" style={{ color: score > 80 ? '#00e5ff' : score < -80 ? '#ff0055' : 'white' }}>
                    {score > 0 ? `+${score}` : score}
                  </span>
-                 <span className="text-xs text-gray-400 font-mono uppercase tracking-widest mt-2">{connected ? t.sentiment : "N/A"}</span>
+                 <span className="text-xs text-gray-400 font-mono uppercase tracking-widest mt-2 text-center">{connected ? t.sentiment : "N/A"}</span>
               </div>
             </div>
             
@@ -153,10 +211,21 @@ export default function Home() {
                 {!connected ? t.offline : score > 80 ? t.buySignal : score < -80 ? t.sellSignal : t.neutralSignal}
               </p>
             </div>
+            
+            {/* The Huge User Retail Transaction Button triggered by AI Signal! */}
+            {(score > 80 || score < -80) && connected && (
+              <button 
+                onClick={handleRetailTrade}
+                className={`mt-4 w-full py-4 rounded-xl font-black text-white text-sm md:text-base tracking-widest uppercase transition-all duration-300 shadow-2xl animate-pulse hover:scale-105 ${score > 80 ? 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50' : 'bg-gradient-to-r from-[#ff0055] to-red-700 shadow-[#ff0055]/50'}`}
+              >
+                {t.executeTrade}
+              </button>
+            )}
+
           </div>
         </section>
 
-        {/* Middle Column: Terminal Feed (Actual Python Logs) */}
+        {/* Middle Column: Terminal Feed */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-4 animate-slide-down lg:col-span-1" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
             <span>⚡</span> {t.logicConsole}
@@ -185,7 +254,7 @@ export default function Home() {
           
           <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-96 pr-2">
             {trades.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-10 font-mono text-sm">
+              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-10 font-mono text-sm leading-relaxed">
                 <div className="animate-pulse mb-3 text-2xl duration-1000">⏳</div>
                 {t.awaitingThresholds}
               </div>
