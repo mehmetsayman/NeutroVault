@@ -23,7 +23,7 @@ const translations = {
     logicConsole: "Real-Time Logic Console",
     waitingEngine: "Waiting for AI engine to start polling market...",
     cannotReach: "Cannot reach background server. Please start 'python main.py' to pipe logs here.",
-    onChainEx: "Live Monad Portfolio (5% Fee)",
+    onChainEx: "Live Web3 Monad Portfolio",
     awaitingThresholds: "Awaiting strong AI signals to unlock your trade opportunities...",
     target: "Monad Network",
     toggleLang: "🇹🇷 TR",
@@ -31,8 +31,8 @@ const translations = {
     walletConnected: "Connected",
     executeTrade: "⚡ Execute AI Trade (5% Fee)",
     monadBalance: "Real Wallet Balance",
-    totalProfit: "Total PnL (MON)",
-    activeAssets: "Active Assets",
+    totalProfit: "Total Mock PnL (MON)",
+    activeAssets: "Active Mock Assets",
     none: "None. Holding Cash.",
     budgetMode: "Trade Budget (MON)"
   },
@@ -50,7 +50,7 @@ const translations = {
     logicConsole: "Yapay Zeka Mantık Konsolu",
     waitingEngine: "Yapay zeka motorunun piyasayı taramaya başlaması bekleniyor...",
     cannotReach: "Arka plan sunucusuna ulaşılamıyor. Lütfen terminalden 'python main.py' başlatın.",
-    onChainEx: "Canlı Monad Portföyü (%5 Kom.)",
+    onChainEx: "Canlı Web3 Monad Portföyü",
     awaitingThresholds: "Para kazanma işlemlerinizi açmak için aşırı güçlü Yapay Zeka sinyalleri bekleniyor...",
     target: "Monad Ağı",
     toggleLang: "🇬🇧 EN",
@@ -58,8 +58,8 @@ const translations = {
     walletConnected: "Cüzdan Bağlı",
     executeTrade: "⚡ Alım Satımı Onayla (%5 Komisyon)",
     monadBalance: "Gerçek Cüzdan Bakiyesi",
-    totalProfit: "Toplam Kâr (MON)",
-    activeAssets: "Aktif Varlıklar",
+    totalProfit: "Portföy Kâr/Zarar (MON)",
+    activeAssets: "Aktif İşlemler",
     none: "Nakit Bekleniyor (Boş)",
     budgetMode: "Yatırım Bütçesi (MON)"
   }
@@ -78,20 +78,32 @@ export default function Home() {
   const [tradeAmountInput, setTradeAmountInput] = useState("0.05"); // User Dynamic Budget
   const [totalProfit, setTotalProfit] = useState(0.00);
   const [hasCryptoAsset, setHasCryptoAsset] = useState(false); 
-  const [investedAmount, setInvestedAmount] = useState(0.00); // Ne kadar MON bağlandığı
+  const [investedAmount, setInvestedAmount] = useState(0.00); 
+  
+  // Real Chain Data for Commission
+  const [devWalletTarget, setDevWalletTarget] = useState("");
   const [developerCommission, setDeveloperCommission] = useState(0.00);
+  
   const [localTrades, setLocalTrades] = useState<{ id: number; action: string; profit?: number; hash: string }[]>([]);
   const [tradeCounter, setTradeCounter] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
 
-  // Request Notification Permissions on load
+  // Request Notification Permissions on load & Restore localstorage for dev target
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-       Notification.requestPermission();
+    if (typeof window !== "undefined") {
+       if ("Notification" in window) Notification.requestPermission();
+       const savedTarget = localStorage.getItem("devWalletTarget");
+       if (savedTarget) setDevWalletTarget(savedTarget);
     }
   }, []);
+
+  // Update devTarget to local storage to save between refreshes
+  const handleSetDevTarget = (val: string) => {
+      setDevWalletTarget(val);
+      localStorage.setItem("devWalletTarget", val);
+  };
 
   // Browser Notification capability for strong AI Signals
   useEffect(() => {
@@ -110,13 +122,13 @@ export default function Home() {
     }
   }, [logs]);
 
+  // AI Backend Polling
   useEffect(() => {
     const fetchState = async () => {
       try {
         const res = await fetch("http://127.0.0.1:8000/api/state");
         if (!res.ok) throw new Error("HTTP error");
         const data = await res.json();
-        
         setScore(data.score);
         setLogs(data.logs);
         setConnected(true);
@@ -129,7 +141,35 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Web3 Metamask Connection & Real Balance Fetching
+// REAL WEB3 NETWORK BALANCE POLLING (Every 3 Seconds)
+useEffect(() => {
+    const fetchRealBalances = async () => {
+        if (typeof window.ethereum === 'undefined') return;
+        
+        // Cüzdandaki Gerçek Kullanıcı Bakiyesi
+        if (wallet) {
+            try {
+                const balanceHex = await window.ethereum.request({ method: 'eth_getBalance', params: [wallet, 'latest'] });
+                setMonBalance(parseInt(balanceHex, 16) / 1e18);
+            } catch(e) { /* ignore silently in background */ }
+        }
+
+        // Komisyon Havuzunun Gerçek Bakiyesi (Test Blockchain'den Canlı Çekim)
+        if (devWalletTarget && devWalletTarget.startsWith("0x") && devWalletTarget.length === 42) {
+            try {
+                const devHex = await window.ethereum.request({ method: 'eth_getBalance', params: [devWalletTarget, 'latest'] });
+                setDeveloperCommission(parseInt(devHex, 16) / 1e18);
+            } catch(e) {}
+        }
+    };
+
+    fetchRealBalances(); // İlk açıldığında anında çek
+    const balanceInterval = setInterval(fetchRealBalances, 3000); // 3 saniyede bir cüzdanları güncelle
+    return () => clearInterval(balanceInterval);
+}, [wallet, devWalletTarget]);
+
+
+  // Web3 Metamask Connection
   const handleConnectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
@@ -138,17 +178,7 @@ export default function Home() {
           params: [{ eth_accounts: {} }]
         });
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const userWallet = accounts[0];
-        setWallet(userWallet);
-        
-        // Cüzdandaki Gerçek MON Bakiyesini Hex formatından çekip dönüştürüyoruz
-        const balanceHex = await window.ethereum.request({
-            method: 'eth_getBalance',
-            params: [userWallet, 'latest']
-        });
-        const realBalance = parseInt(balanceHex, 16) / 1e18; // Wei to Ether
-        setMonBalance(realBalance);
-
+        setWallet(accounts[0]);
       } catch (error) {
         console.error("Wallet connection denied", error);
       }
@@ -157,7 +187,6 @@ export default function Home() {
     }
   };
 
-  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
 
   // Dynamic Trade Execution using scaled balance values
   const handleRetailTrade = async (forcedAction?: "BUY" | "SELL") => {
@@ -165,8 +194,13 @@ export default function Home() {
       alert(lang === "tr" ? "Lütfen önce Cüzdanı bağlayın!" : "Please connect your wallet first!");
       return;
     }
+
+    if (!devWalletTarget || devWalletTarget.length !== 42) {
+       alert(lang === "tr" ? "Lütfen Sağ kısımdaki 'Komisyon Hesabı' kutusuna kendi 2. cüzdanınızın adresini yapıştırın! Sistem alınan %5'lik komisyonları o cüzdanınıza transfer edecektir." : "Please add a target commission wallet address first!");
+       return;
+    }
     
-    // Trade boyutunu Müşterinin Input üzerinden girdiği rakamdan çekeriz
+    // Trade boyutunu Göstergeden Çek
     const tradeSize = parseFloat(tradeAmountInput);
     if (isNaN(tradeSize) || tradeSize <= 0) {
         alert(lang === "tr" ? "Geçerli bir yatırım bütçesi girin!" : "Enter a valid trade budget!");
@@ -175,61 +209,54 @@ export default function Home() {
 
     const tradeAction = forcedAction ? forcedAction : (score >= 60 ? "BUY" : "SELL");
     
-    // Simulate UI logic restrictions
     if (tradeAction === "BUY" && hasCryptoAsset) {
-        alert(lang === "tr" ? "Zaten elinizde varlık var! Satış sinyali gelmesini bekleyin veya 'Test Satış' yapın." : "You already hold assets! Wait for a SELL signal.");
+        alert(lang === "tr" ? "Zaten elinizde varlık var! Satış sinyali gelmesini bekleyin veya 'Test Satış' yapın." : "You already hold assets!");
         return;
     }
     if (tradeAction === "SELL" && !hasCryptoAsset) {
-        alert(lang === "tr" ? "Satacak varlığınız yok! Alış sinyali gelmesini bekleyin veya 'Test Alış' yapın." : "No assets to sell! Wait for a BUY signal.");
+        alert(lang === "tr" ? "Satacak varlığınız yok! Alış sinyali gelmesini bekleyin veya 'Test Alış' yapın." : "No assets to sell!");
         return;
     }
 
     const feeSize = tradeSize * 0.05; // %5 komisyon
-    
-    // Metamask komisyon değerini Hex olarak 18 sıfırla (Wei) hesaplayıp platform Sahibine yollar
-    // Sadece Metamask ağı mevcutsa dener
+    let txHashMined = "";
+
+    // GERÇEK METAMASK İŞLEM ONAYI - Eğer Reddedilirse Sistem Duraklar (Strict Mode)
     if (typeof window.ethereum !== 'undefined' && wallet.startsWith("0x")) {
         try {
             const weiFee = BigInt(Math.floor(feeSize * 1e18));
             const hexFee = '0x' + weiFee.toString(16);
 
-            await window.ethereum.request({
+            // Strict Await! Metamaskin cevap dönmesini bekleriz. Parası yetmezse catch'e düşer ve başarısız olur.
+            txHashMined = await window.ethereum.request({
                method: 'eth_sendTransaction',
-               params: [{from: wallet, to: DEVELOPER_WALLET, value: hexFee}], 
+               params: [{from: wallet, to: devWalletTarget, value: hexFee}], 
             });
         } catch (error) {
-            console.warn("Metamask rejected or failed. Bypassing strictly for UI Demo purposes.", error);
+            console.error("Metamask reddetti veya iptal oldu.");
+            alert(lang === "tr" ? "❌ İşlem Reddedildi veya Yetersiz Bakiye! Portföyünüze YANSIMADI." : "❌ Transaction Rejected!");
+            return; // GERÇEKÇİ ÇALIŞMASI İÇİN DURDURULDU! BAŞARISIZ İŞLEMLER MOCK'LANMAZ!
         }
     }
 
     // Process logic visually using the real wallet balance foundation
-    const mockHash = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase() + "..." + Math.random().toString(16).slice(2, 6).toUpperCase();
+    const mockHash = txHashMined || ("0x" + Math.random().toString(16).slice(2, 10).toUpperCase() + "..." + Math.random().toString(16).slice(2, 6).toUpperCase());
     const currentTradeId = tradeCounter + 1;
     setTradeCounter(currentTradeId);
 
     if (tradeAction === "BUY") {
         setHasCryptoAsset(true);
         setInvestedAmount(tradeSize);
-        // Bakiyeden (Deposit + Fee) kadar düş
-        const totalDeduction = tradeSize + feeSize; 
-        setMonBalance(monBalance - totalDeduction);
-        setDeveloperCommission(prev => prev + feeSize);
-
-        setLocalTrades([{ id: currentTradeId, action: `BUY (-${totalDeduction.toFixed(4)} MON)`, hash: mockHash }, ...localTrades]);
+        // Note: The UI balance (monBalance) will auto-refresh natively within 3 seconds due to the polling loop!
+        
+        setLocalTrades([{ id: currentTradeId, action: `BUY (${tradeSize} MON)`, hash: mockHash }, ...localTrades]);
     } else {
         setHasCryptoAsset(false);
-        // %10 ila %30 arası rastgele KAR oranı
         const mockProfitForThisTrade = investedAmount * (0.10 + (Math.random() * 0.20));
-        // Geri Dönüş: Yatırdığı Anapara + Kar - Satış Komisyonu
-        const totalReturn = investedAmount + mockProfitForThisTrade - feeSize;
-        
-        setMonBalance(monBalance + totalReturn);
         setTotalProfit(totalProfit + mockProfitForThisTrade);
-        setDeveloperCommission(prev => prev + feeSize);
         setInvestedAmount(0);
 
-        setLocalTrades([{ id: currentTradeId, action: `SELL (+${totalReturn.toFixed(4)} MON)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
+        setLocalTrades([{ id: currentTradeId, action: `SELL (Kâr Realize Edildi)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
     }
   };
 
@@ -410,27 +437,49 @@ export default function Home() {
           
           <div className="w-full bg-[#836ef9]/10 border border-[#836ef9]/30 rounded-xl p-4 flex justify-between items-center mb-1 relative overflow-hidden">
              <div className="absolute top-0 right-0 w-32 h-32 bg-[#836ef9] rounded-full blur-[60px] opacity-20"></div>
-             <div className="flex flex-col z-10">
+             <div className="flex flex-col z-10 w-full">
                 <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.monadBalance}</span>
                 <span className="text-3xl font-black text-white">{monBalance.toFixed(4)} <span className="text-[14px] text-[#836ef9]">MON</span></span>
-             </div>
-             <div className="flex flex-col items-end z-10">
-                <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.totalProfit}</span>
-                <span className={`text-xl font-bold ${totalProfit > 0 ? 'text-green-400' : 'text-gray-500'}`}>+{totalProfit.toFixed(4)}</span>
              </div>
           </div>
 
           <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center border border-white/5 text-xs mb-1">
             <span className="text-gray-400">{t.activeAssets}:</span>
             <span className={hasCryptoAsset ? "text-[#00e5ff] font-bold animate-pulse" : "text-gray-500"}>
-                {hasCryptoAsset ? `${investedAmount.toFixed(4)} MON İŞLEMDE` : t.none}
+                {hasCryptoAsset ? `PORTFÖYDE ${investedAmount.toFixed(4)} MON RİSKTE` : t.none}
+            </span>
+          </div>
+          
+          <div className="w-full bg-green-500/10 rounded-xl p-3 flex justify-between items-center border border-green-500/20 text-xs mb-1">
+            <span className="text-gray-300">{lang === "tr" ? "Müşteri Sanal Kâr/Zarar:" : "Client Mock PnL:"}</span>
+            <span className={`font-bold ${totalProfit > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                +{totalProfit.toFixed(4)} MON ✨
             </span>
           </div>
 
-          {/* DEVELOPER COMMISSION EARNINGS PANEL */}
-          <div className="w-full bg-[#00e5ff]/10 border border-[#00e5ff]/30 rounded-xl p-3 flex justify-between items-center text-xs shadow-[0_0_10px_#00e5ff33]">
-            <span className="text-gray-300 font-semibold">{lang === "tr" ? "Kurum Komisyon Kazancı:" : "Protocol Fee Earnings:"}</span>
-            <span className="text-[#00e5ff] font-black text-sm">+{developerCommission.toFixed(4)} MON 💰</span>
+          {/* DEVELOPER COMMISSION EARNINGS PANEL (100% REAL WEB3) */}
+          <div className="w-full bg-[#00e5ff]/10 border border-[#00e5ff]/30 rounded-xl p-3 flex flex-col gap-3 text-xs shadow-[0_0_10px_#00e5ff33]">
+             <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-300 font-semibold">{lang === "tr" ? "Platform Sahibi (2. Cüzdan):" : "Fee Receiver:"}</span>
+                <input 
+                   type="text" 
+                   value={devWalletTarget} 
+                   onChange={e => handleSetDevTarget(e.target.value)} 
+                   placeholder="0xMutaHesabiniziYazin..."
+                   className="bg-black/50 border border-[#00e5ff]/40 text-[#00e5ff] w-40 px-2 py-1.5 outline-none text-[10px] rounded focus:w-56 transition-all"
+                />
+             </div>
+             
+             <div className="h-[1px] w-full bg-[#00e5ff]/20"></div>
+
+            <div className="flex justify-between items-center text-[13px] mt-1">
+                <span className="text-gray-100 font-black">{lang === "tr" ? "Gerçek Komisyon Havuzu:" : "Live Native Earnings:"}</span>
+                {devWalletTarget.length === 42 ? (
+                    <span className="text-[#00e5ff] font-black text-base animate-pulse">{developerCommission.toFixed(4)} MON 📈</span>
+                ) : (
+                    <span className="text-red-500 font-bold text-[10px]">ADRES BEKLENİYOR</span>
+                )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-56 pr-2">
@@ -450,7 +499,7 @@ export default function Home() {
                     )}
                   </div>
                   <div className="flex items-center justify-between bg-black/60 px-2 py-1.5 rounded border border-white/5">
-                    <span className="text-[9px] text-gray-500">TX HASH</span>
+                    <span className="text-[9px] text-gray-500">TX HASH DÖKÜMÜ</span>
                     <span className="text-[10px] text-[#836ef9] font-mono select-all truncate ml-2">
                       {trade.hash}
                     </span>
