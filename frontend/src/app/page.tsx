@@ -177,19 +177,11 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-// REAL WEB3 NETWORK BALANCE POLLING (Every 3 Seconds)
+// REAL WEB3 NETWORK BALANCE POLLING FOR COMMISSION ONLY (Every 3 Seconds)
 useEffect(() => {
-    const fetchRealBalances = async () => {
+    const fetchFeePool = async () => {
         if (typeof window.ethereum === 'undefined') return;
         
-        // Cüzdandaki Gerçek Kullanıcı Bakiyesi
-        if (wallet) {
-            try {
-                const balanceHex = await window.ethereum.request({ method: 'eth_getBalance', params: [wallet, 'latest'] });
-                setMonBalance(parseInt(balanceHex, 16) / 1e18);
-            } catch(e) { /* ignore silently in background */ }
-        }
-
         // Komisyon Havuzunun Gerçek Bakiyesi (Test Blockchain'den Canlı Çekim)
         if (devWalletTarget && devWalletTarget.startsWith("0x") && devWalletTarget.length === 42) {
             try {
@@ -199,10 +191,10 @@ useEffect(() => {
         }
     };
 
-    fetchRealBalances(); // İlk açıldığında anında çek
-    const balanceInterval = setInterval(fetchRealBalances, 3000); // 3 saniyede bir cüzdanları güncelle
+    fetchFeePool(); // İlk açıldığında anında çek
+    const balanceInterval = setInterval(fetchFeePool, 3000); // 3 saniyede bir kurum cüzdanını güncelle
     return () => clearInterval(balanceInterval);
-}, [wallet, devWalletTarget]);
+}, [devWalletTarget]);
 
 
   // Web3 Metamask Connection
@@ -289,13 +281,17 @@ useEffect(() => {
     if (tradeAction === "BUY") {
         setHasCryptoAsset(true);
         setInvestedAmount(tradeSize);
-        // Note: The UI balance (monBalance) will auto-refresh natively within 3 seconds due to the polling loop!
+        // Ana parayı bakiye havuzundan SANAL olarak düş ! (%100 Metamasktan çıkarsa geri yollayamayız). Yalnızca Fee Metamasktan çıkar.
+        setMonBalance((prev) => prev - tradeSize - feeSize);
         
         setLocalTrades([{ id: currentTradeId, action: `BUY (${tradeSize} MON)`, hash: mockHash }, ...localTrades]);
     } else {
         setHasCryptoAsset(false);
         const mockProfitForThisTrade = investedAmount * (0.10 + (Math.random() * 0.20));
         setTotalProfit(totalProfit + mockProfitForThisTrade);
+        
+        // Ana para ve Kâr oranını Sanal olarak Müşterinin Portföyüne geri iade et
+        setMonBalance((prev) => prev + investedAmount + mockProfitForThisTrade);
         setInvestedAmount(0);
 
         setLocalTrades([{ id: currentTradeId, action: `SELL (Kâr Realize Edildi)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
