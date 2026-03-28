@@ -181,5 +181,12 @@ def startup_event():
 def get_state():
     return agent_state
 
+@app.get("/api/set-score")
+def set_score(score: int = 0):
+    """Demo override: Manually set sentiment score for hackathon presentation"""
+    agent_state["score"] = max(-100, min(100, score))
+    add_log(f"⚙️ DEMO OVERRIDE: Score manually set to {agent_state['score']}", "action")
+    return {"status": "ok", "score": agent_state["score"]}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

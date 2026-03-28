@@ -413,6 +413,20 @@ useEffect(() => {
                   {!connected ? t.offline : score >= 60 ? t.buySignal : score <= -60 ? t.sellSignal : t.neutralSignal}
                 </p>
               </div>
+
+              {/* Demo Override: Manuel Skor Ayarlama */}
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <span className="text-[9px] text-gray-500 font-mono uppercase tracking-widest">Demo:</span>
+                <button onClick={() => fetch('http://127.0.0.1:8000/api/set-score?score=80')} className="px-3 py-1 bg-[#00e5ff]/10 border border-[#00e5ff]/30 text-[#00e5ff] text-[10px] font-black rounded-lg hover:bg-[#00e5ff]/30 transition-all">
+                  +80 BUY
+                </button>
+                <button onClick={() => fetch('http://127.0.0.1:8000/api/set-score?score=0')} className="px-3 py-1 bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black rounded-lg hover:bg-white/10 transition-all">
+                  0 NÖTR
+                </button>
+                <button onClick={() => fetch('http://127.0.0.1:8000/api/set-score?score=-80')} className="px-3 py-1 bg-[#ff0055]/10 border border-[#ff0055]/30 text-[#ff0055] text-[10px] font-black rounded-lg hover:bg-[#ff0055]/30 transition-all">
+                  -80 SELL
+                </button>
+              </div>
             </div>
           </div>
 
