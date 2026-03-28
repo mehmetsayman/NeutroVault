@@ -33,7 +33,8 @@ const translations = {
     monadBalance: "Real Wallet Balance",
     totalProfit: "Total PnL (MON)",
     activeAssets: "Active Assets",
-    none: "None. Holding Cash."
+    none: "None. Holding Cash.",
+    budgetMode: "Trade Budget (MON)"
   },
   tr: {
     subtitle: "Merkeziyetsiz Perakende Yapay Zeka Sinyalleri",
@@ -59,7 +60,8 @@ const translations = {
     monadBalance: "Gerçek Cüzdan Bakiyesi",
     totalProfit: "Toplam Kâr (MON)",
     activeAssets: "Aktif Varlıklar",
-    none: "Nakit Bekleniyor (Boş)"
+    none: "Nakit Bekleniyor (Boş)",
+    budgetMode: "Yatırım Bütçesi (MON)"
   }
 };
 
@@ -71,10 +73,12 @@ export default function Home() {
   const [connected, setConnected] = useState(false);
   const [wallet, setWallet] = useState<string | null>(null);
 
-  // --- REAL-TIME PORTFOLIO SYSTEM ---
+  // --- REAL-TIME PORTFOLIO & BUDGET SYSTEM ---
   const [monBalance, setMonBalance] = useState(0.00); 
+  const [tradeAmountInput, setTradeAmountInput] = useState("0.05"); // User Dynamic Budget
   const [totalProfit, setTotalProfit] = useState(0.00);
   const [hasCryptoAsset, setHasCryptoAsset] = useState(false); 
+  const [investedAmount, setInvestedAmount] = useState(0.00); // Ne kadar MON bağlandığı
   const [developerCommission, setDeveloperCommission] = useState(0.00);
   const [localTrades, setLocalTrades] = useState<{ id: number; action: string; profit?: number; hash: string }[]>([]);
   const [tradeCounter, setTradeCounter] = useState(0);
@@ -156,39 +160,47 @@ export default function Home() {
   const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
 
   // Dynamic Trade Execution using scaled balance values
-  const handleRetailTrade = async () => {
+  const handleRetailTrade = async (forcedAction?: "BUY" | "SELL") => {
     if (!wallet) {
       alert(lang === "tr" ? "Lütfen önce Cüzdanı bağlayın!" : "Please connect your wallet first!");
       return;
     }
     
-    // Trade boyutunu bakiyeye göre orantılar (Demo için sembolik 0.05 MON büyüklüğünde bir işlem)
-    const tradeSize = 0.05; 
-    const feeSize = 0.0025; // %5 komisyon
+    // Trade boyutunu Müşterinin Input üzerinden girdiği rakamdan çekeriz
+    const tradeSize = parseFloat(tradeAmountInput);
+    if (isNaN(tradeSize) || tradeSize <= 0) {
+        alert(lang === "tr" ? "Geçerli bir yatırım bütçesi girin!" : "Enter a valid trade budget!");
+        return;
+    }
+
+    const tradeAction = forcedAction ? forcedAction : (score >= 60 ? "BUY" : "SELL");
     
-    // Sıkı Olmayan (Soft Demo) Metamask İşlem Onayı (gerçek transfer denemesi)
+    // Simulate UI logic restrictions
+    if (tradeAction === "BUY" && hasCryptoAsset) {
+        alert(lang === "tr" ? "Zaten elinizde varlık var! Satış sinyali gelmesini bekleyin veya 'Test Satış' yapın." : "You already hold assets! Wait for a SELL signal.");
+        return;
+    }
+    if (tradeAction === "SELL" && !hasCryptoAsset) {
+        alert(lang === "tr" ? "Satacak varlığınız yok! Alış sinyali gelmesini bekleyin veya 'Test Alış' yapın." : "No assets to sell! Wait for a BUY signal.");
+        return;
+    }
+
+    const feeSize = tradeSize * 0.05; // %5 komisyon
+    
+    // Metamask komisyon değerini Hex olarak 18 sıfırla (Wei) hesaplayıp platform Sahibine yollar
+    // Sadece Metamask ağı mevcutsa dener
     if (typeof window.ethereum !== 'undefined' && wallet.startsWith("0x")) {
         try {
+            const weiFee = BigInt(Math.floor(feeSize * 1e18));
+            const hexFee = '0x' + weiFee.toString(16);
+
             await window.ethereum.request({
                method: 'eth_sendTransaction',
-               // 0.0025 ETH = 0x8E1BC9BF04000 Wei
-               params: [{from: wallet, to: DEVELOPER_WALLET, value: '0x8E1BC9BF04000'}], 
+               params: [{from: wallet, to: DEVELOPER_WALLET, value: hexFee}], 
             });
         } catch (error) {
             console.warn("Metamask rejected or failed. Bypassing strictly for UI Demo purposes.", error);
         }
-    }
-
-    const tradeAction = score >= 60 ? "BUY" : "SELL";
-    
-    // Simulate UI logic restrictions
-    if (tradeAction === "BUY" && hasCryptoAsset) {
-        alert(lang === "tr" ? "Zaten elinizde varlık var! Satış sinyali gelmesini bekleyin." : "You already hold assets! Wait for a SELL signal.");
-        return;
-    }
-    if (tradeAction === "SELL" && !hasCryptoAsset) {
-        alert(lang === "tr" ? "Satacak varlığınız yok! Alış sinyali gelmesini bekleyin." : "No assets to sell! Wait for a BUY signal.");
-        return;
     }
 
     // Process logic visually using the real wallet balance foundation
@@ -198,22 +210,24 @@ export default function Home() {
 
     if (tradeAction === "BUY") {
         setHasCryptoAsset(true);
+        setInvestedAmount(tradeSize);
         // Bakiyeden (Deposit + Fee) kadar düş
-        const newBalance = monBalance - (tradeSize + feeSize); 
-        setMonBalance(newBalance);
+        const totalDeduction = tradeSize + feeSize; 
+        setMonBalance(monBalance - totalDeduction);
         setDeveloperCommission(prev => prev + feeSize);
 
-        setLocalTrades([{ id: currentTradeId, action: `BUY (-${(tradeSize + feeSize).toFixed(4)} MON)`, hash: mockHash }, ...localTrades]);
+        setLocalTrades([{ id: currentTradeId, action: `BUY (-${totalDeduction.toFixed(4)} MON)`, hash: mockHash }, ...localTrades]);
     } else {
         setHasCryptoAsset(false);
         // %10 ila %30 arası rastgele KAR oranı
-        const mockProfitForThisTrade = tradeSize * (0.10 + (Math.random() * 0.20));
-        const totalReturn = tradeSize + mockProfitForThisTrade - feeSize;
+        const mockProfitForThisTrade = investedAmount * (0.10 + (Math.random() * 0.20));
+        // Geri Dönüş: Yatırdığı Anapara + Kar - Satış Komisyonu
+        const totalReturn = investedAmount + mockProfitForThisTrade - feeSize;
         
-        const newBalance = monBalance + totalReturn;
-        setMonBalance(newBalance);
+        setMonBalance(monBalance + totalReturn);
         setTotalProfit(totalProfit + mockProfitForThisTrade);
         setDeveloperCommission(prev => prev + feeSize);
+        setInvestedAmount(0);
 
         setLocalTrades([{ id: currentTradeId, action: `SELL (+${totalReturn.toFixed(4)} MON)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
     }
@@ -293,43 +307,71 @@ export default function Home() {
       {/* Main Grid: 2 Columns Only */}
       <main className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 z-10 w-full h-full pb-8">
         
-        {/* Left Column: Sentiment Dashboard */}
-        <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down relative" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
-            <span>📡</span> {t.brainStateTitle}
-          </h2>
-          
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4">
-            <div className="relative w-48 h-48 flex items-center justify-center drop-shadow-2xl">
-              <svg className="w-full h-full transform -rotate-90 drop-shadow-lg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                <circle cx="50" cy="50" r="45" fill="none" 
-                  stroke={score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9'} 
-                  strokeWidth="8" 
-                  strokeDasharray={`${Math.abs(score) * 2.8} 280`}
-                  className="transition-all duration-1000 ease-out"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center p-6 rounded-full">
-                 <span className="text-4xl font-black drop-shadow-md" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : 'white' }}>
-                   {score > 0 ? `+${score}` : score}
-                 </span>
-                 <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest mt-1 text-center">{connected ? t.sentiment : "N/A"}</span>
+        {/* Left Column: Sentiment Dashboard & Input Panel */}
+        <section className="glass-panel p-6 rounded-3xl flex flex-col gap-5 animate-slide-down relative h-full justify-between" style={{ animationDelay: '0.1s' }}>
+          <div>
+            <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
+              <span>📡</span> {t.brainStateTitle}
+            </h2>
+            
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="relative w-40 h-40 flex items-center justify-center drop-shadow-2xl">
+                <svg className="w-full h-full transform -rotate-90 drop-shadow-lg" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                  <circle cx="50" cy="50" r="45" fill="none" 
+                    stroke={score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9'} 
+                    strokeWidth="8" 
+                    strokeDasharray={`${Math.abs(score) * 2.8} 280`}
+                    className="transition-all duration-1000 ease-out"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center p-6 rounded-full">
+                   <span className="text-4xl font-black drop-shadow-md" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : 'white' }}>
+                     {score > 0 ? `+${score}` : score}
+                   </span>
+                   <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest mt-1 text-center">{connected ? t.sentiment : "N/A"}</span>
+                </div>
+              </div>
+              
+              <div className="w-full bg-black/40 rounded-xl p-3 border border-white/5 text-center mt-2 shadow-inner">
+                <p className="text-sm font-bold tracking-wider" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9' }}>
+                  {!connected ? t.offline : score >= 60 ? t.buySignal : score <= -60 ? t.sellSignal : t.neutralSignal}
+                </p>
               </div>
             </div>
+          </div>
+
+          {/* LOWER SECTION: BUDGET & ACTIONS */}
+          <div className="flex flex-col gap-3">
             
-            <div className="w-full bg-black/40 rounded-xl p-3 border border-white/5 text-center mt-2 shadow-inner">
-              <p className="text-sm font-bold tracking-wider" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9' }}>
-                {!connected ? t.offline : score >= 60 ? t.buySignal : score <= -60 ? t.sellSignal : t.neutralSignal}
-              </p>
-            </div>
-            
+            {/* Input Field For Trade Size */}
+            {connected && (
+               <div className="w-full flex flex-col gap-1.5 bg-black/30 p-4 rounded-2xl border border-white/5">
+                 <label className="text-[11px] text-[#836ef9] font-black tracking-widest uppercase flex items-center justify-between">
+                    {t.budgetMode}
+                 </label>
+                 <div className="flex bg-black/50 border border-white/10 rounded-xl overflow-hidden shadow-inner focus-within:border-[#00e5ff] transition-all">
+                    <span className="pl-4 py-3 text-gray-500 font-bold">M</span>
+                    <input 
+                      type="number" 
+                      value={tradeAmountInput} 
+                      onChange={(e) => setTradeAmountInput(e.target.value)}
+                      className="w-full bg-transparent text-[#00e5ff] font-mono font-black text-lg px-2 py-3 outline-none"
+                      step="0.01"
+                      min="0.001"
+                      placeholder="0.05"
+                    />
+                    <span className="pr-4 py-3 text-gray-600 font-black text-xs self-center">MONAD</span>
+                 </div>
+               </div>
+            )}
+
             {/* The Main Dynamic Trade Button (Glows & Blinks Aggressively when available) */}
             {(score >= 60 || score <= -60) && connected && (
               <button 
                 onClick={() => handleRetailTrade()}
-                className={`mt-4 w-full py-5 rounded-2xl font-black text-white text-[15px] tracking-widest uppercase transition-all duration-300 shadow-[0_0_40px] hover:scale-105 active:scale-95 cursor-pointer border-2
+                className={`w-full py-5 rounded-2xl font-black text-white text-[15px] tracking-widest uppercase transition-all duration-300 shadow-[0_0_40px] hover:scale-105 active:scale-95 cursor-pointer border-2
                     ${score >= 60 
                      ? (hasCryptoAsset ? 'bg-gray-700 border-gray-500 opacity-50 cursor-not-allowed hidden' : 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff] border-[#00e5ff] animate-[pulse_1s_infinite]')
                      : (!hasCryptoAsset ? 'bg-gray-700 border-gray-500 opacity-50 cursor-not-allowed hidden' : 'bg-gradient-to-r from-[#ff0055] to-red-600 shadow-[#ff0055] border-[#ff0055] animate-[pulse_1s_infinite]')
@@ -340,6 +382,23 @@ export default function Home() {
               </button>
             )}
 
+            {/* Manual Trade Override / Force Buttons (Always visible when connected) */}
+            {connected && (
+               <div className="flex gap-2 w-full">
+                 <button 
+                   onClick={() => handleRetailTrade("BUY")}
+                   className="flex-1 py-3 bg-black/40 border border-[#00e5ff]/30 text-[#00e5ff] text-[11px] font-black uppercase rounded-xl hover:bg-[#00e5ff]/20 transition-all shadow-[0_0_10px_#00e5ff1a]"
+                 >
+                   MANUAL AL (TEST)
+                 </button>
+                 <button 
+                   onClick={() => handleRetailTrade("SELL")}
+                   className="flex-1 py-3 bg-black/40 border border-[#ff0055]/30 text-[#ff0055] text-[11px] font-black uppercase rounded-xl hover:bg-[#ff0055]/20 transition-all shadow-[0_0_10px_#ff00551a]"
+                 >
+                   MANUAL SAT (TEST)
+                 </button>
+               </div>
+            )}
           </div>
         </section>
 
@@ -353,7 +412,7 @@ export default function Home() {
              <div className="absolute top-0 right-0 w-32 h-32 bg-[#836ef9] rounded-full blur-[60px] opacity-20"></div>
              <div className="flex flex-col z-10">
                 <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.monadBalance}</span>
-                <span className="text-3xl font-black text-white">{monBalance.toFixed(4)} <span className="text-[14px]">MON</span></span>
+                <span className="text-3xl font-black text-white">{monBalance.toFixed(4)} <span className="text-[14px] text-[#836ef9]">MON</span></span>
              </div>
              <div className="flex flex-col items-end z-10">
                 <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.totalProfit}</span>
@@ -364,7 +423,7 @@ export default function Home() {
           <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center border border-white/5 text-xs mb-1">
             <span className="text-gray-400">{t.activeAssets}:</span>
             <span className={hasCryptoAsset ? "text-[#00e5ff] font-bold animate-pulse" : "text-gray-500"}>
-                {hasCryptoAsset ? "0.05 MON İŞLEMDE" : t.none}
+                {hasCryptoAsset ? `${investedAmount.toFixed(4)} MON İŞLEMDE` : t.none}
             </span>
           </div>
 
@@ -374,7 +433,7 @@ export default function Home() {
             <span className="text-[#00e5ff] font-black text-sm">+{developerCommission.toFixed(4)} MON 💰</span>
           </div>
 
-          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-40 pr-2">
+          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-56 pr-2">
             {localTrades.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-4 font-mono text-xs leading-relaxed">
                 {t.awaitingThresholds}
