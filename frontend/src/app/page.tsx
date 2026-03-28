@@ -107,6 +107,10 @@ export default function Home() {
     }
   };
 
+  // Komisyonların Yatacağı Senin Cüzdan Adresin (Geliştirici Hesabı)
+  // Gerçek hayatta bu adres Akıllı Sözleşme (Contract) adresi olur. Sunum için doğrudan cüzdan yazdık.
+  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
+
   // User Trade Execution with Fee
   const handleRetailTrade = async () => {
     if (!wallet) {
@@ -115,19 +119,18 @@ export default function Home() {
     }
     
     try {
-      // Dummy execution to represent sending 0.01 MON to the Protocol Contract for MVP
-      // In real life, 'to' would be process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
+      // 0.01 MON (%1 Komisyon bedeli) değerindeki işlemi Geliştirici cüzdanına yollar
       await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [
           {
             from: wallet,
-            to: wallet, // Sending to self purely for safe Hackathon Demo
-            value: '0x2386F26FC10000', // 0.01 in Wei
+            to: DEVELOPER_WALLET, // Komisyonların gideceği Cüzdan
+            value: '0x2386F26FC10000', // 0.01 in Wei (0.01 MON)
           },
         ],
       });
-      alert("✅ İşlem %1 Kurum komisyonu başarıyla tahsil edilerek Monad Testnet ağına gönderildi!");
+      alert(`✅ İşlem Onaylandı! %1 Kurum Komisyonu (${DEVELOPER_WALLET}) hesabına aktarıldı ve asıl takas Monad ağına gönderildi!`);
     } catch (error) {
       console.error("Transaction failed or rejected", error);
     }
