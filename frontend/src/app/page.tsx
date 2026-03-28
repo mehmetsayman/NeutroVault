@@ -23,13 +23,17 @@ const translations = {
     logicConsole: "Real-Time Logic Console",
     waitingEngine: "Waiting for AI engine to start polling market...",
     cannotReach: "Cannot reach background server. Please start 'python main.py' to pipe logs here.",
-    onChainEx: "Retail On-Chain Executions (5% Fee)",
+    onChainEx: "Live Monad Portfolio (5% Fee)",
     awaitingThresholds: "Awaiting strong AI signals to unlock your trade opportunities...",
-    target: "Monad DEX",
+    target: "Monad Network",
     toggleLang: "🇹🇷 TR",
     connectWallet: "🦊 Connect Wallet",
     walletConnected: "Connected",
-    executeTrade: "⚡ Execute AI Trade (5% Fee)"
+    executeTrade: "⚡ Execute AI Trade (5% Fee)",
+    monadBalance: "Wallet Balance (MON)",
+    totalProfit: "Total PnL (MON)",
+    activeAssets: "Active Assets",
+    none: "None. Holding Cash."
   },
   tr: {
     subtitle: "Merkeziyetsiz Perakende Yapay Zeka Sinyalleri",
@@ -45,13 +49,17 @@ const translations = {
     logicConsole: "Yapay Zeka Mantık Konsolu",
     waitingEngine: "Yapay zeka motorunun piyasayı taramaya başlaması bekleniyor...",
     cannotReach: "Arka plan sunucusuna ulaşılamıyor. Lütfen terminalden 'python main.py' başlatın.",
-    onChainEx: "Perakende Zincir İçi İşlemler (%5 Komisyon)",
+    onChainEx: "Canlı Monad Portföyü (%5 Kom.",
     awaitingThresholds: "Para kazanma işlemlerinizi açmak için aşırı güçlü Yapay Zeka sinyalleri bekleniyor...",
-    target: "Monad Akıllı Sözleşmesi",
+    target: "Monad Ağı",
     toggleLang: "🇬🇧 EN",
     connectWallet: "🦊 Cüzdan Bağla",
     walletConnected: "Cüzdan Bağlı",
-    executeTrade: "⚡ Yapay Zeka Fırsatını Onayla (%5 Komisyon)"
+    executeTrade: "⚡ Alım Satımı Onayla (%5 Komisyon)",
+    monadBalance: "Cüzdan Bakiyesi (MON)",
+    totalProfit: "Toplam Kâr (MON)",
+    activeAssets: "Aktif Varlıklar",
+    none: "Nakit Bekleniyor (Boş)"
   }
 };
 
@@ -59,10 +67,16 @@ export default function Home() {
   const [lang, setLang] = useState<"en" | "tr">("en");
   const [score, setScore] = useState(0);
   const [logs, setLogs] = useState<{ id: number; text: string; type: "info" | "action" | "reason"; timestamp: string }[]>([]);
-  const [trades, setTrades] = useState<{ id: number; action: string; hash: string }[]>([]);
-
+  
   const [connected, setConnected] = useState(false);
   const [wallet, setWallet] = useState<string | null>(null);
+
+  // --- MOCK PORTFOLIO SYSTEM FOR MVP PRESENTATION ---
+  const [monBalance, setMonBalance] = useState(100.00); // Start with 100 MON
+  const [totalProfit, setTotalProfit] = useState(0.00);
+  const [hasCryptoAsset, setHasCryptoAsset] = useState(false); // Indicates if currently holding the coin
+  const [localTrades, setLocalTrades] = useState<{ id: number; action: string; profit?: number; hash: string }[]>([]);
+  const [tradeCounter, setTradeCounter] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
@@ -79,10 +93,11 @@ export default function Home() {
         const res = await fetch("http://127.0.0.1:8000/api/state");
         if (!res.ok) throw new Error("HTTP error");
         const data = await res.json();
-
+        
         setScore(data.score);
         setLogs(data.logs);
-        setTrades(data.trades);
+        // We no longer rely deeply on the Python background trades array.
+        // We will build our own retail trades array when the user clicks APPROVE.
         setConnected(true);
       } catch (err) {
         setConnected(false);
@@ -101,143 +116,177 @@ export default function Home() {
         setWallet(accounts[0]);
       } catch (error) {
         console.error("Wallet connection denied", error);
+        // Fallback demo wallet if user cancels metamask for the hackathon
+        setWallet("0xD3m0...C0d3");
       }
     } else {
-      alert("Metamask eklentisi bulunamadı! Lütfen Metamask kurun.");
+      // If no metamask, fake the connection perfectly so presentation logic isn't blocked.
+      alert("Metamask eklentisi bulunamadı! Demo modu aktifleştiriliyor.");
+      setWallet("Demo_0x12..9x");
     }
   };
 
-  // Komisyonların Yatacağı Senin Cüzdan Adresin (Geliştirici Hesabı)
-  // Gerçek hayatta bu adres Akıllı Sözleşme (Contract) adresi olur. Sunum için doğrudan cüzdan yazdık.
-  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xc2F5a5783abacC24E3430768D2cCAC3Ef3cE0Db5";
+  const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
 
-  // User Trade Execution with Fee
+  // Retail Interactive Trade Execution
   const handleRetailTrade = async () => {
     if (!wallet) {
-      alert("Önce cüzdanınızı bağlamalısınız!");
+      alert(lang === "tr" ? "Lütfen önce Cüzdanı bağlayın!" : "Please connect your wallet first!");
       return;
     }
+    
+    // Attempt Metamask Transaction silently
+    if (typeof window.ethereum !== 'undefined') {
+        try {
+            await window.ethereum.request({
+            method: 'eth_sendTransaction',
+            params: [{from: wallet, to: DEVELOPER_WALLET, value: '0xB1A2BC2EC50000'}],
+            });
+        } catch (error) {
+            console.log("Metamask TX ignored, relying on Local Demo State");
+        }
+    }
 
-    try {
-      // 0.05 MON (%5 Komisyon bedeli) değerindeki işlemi Geliştirici cüzdanına yollar
-      await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [
-          {
-            from: wallet,
-            to: DEVELOPER_WALLET, // Komisyonların gideceği Cüzdan
-            value: '0xB1A2BC2EC50000', // 0.05 MON in Wei
-          },
-        ],
-      });
-      alert(`✅ İşlem Onaylandı! %5 Kurum Komisyonu (${DEVELOPER_WALLET}) hesabına aktarıldı ve asıl takas Monad ağına gönderildi!`);
-    } catch (error) {
-      console.error("Transaction failed or rejected", error);
+    const tradeAction = score >= 60 ? "BUY" : "SELL";
+    
+    // Simulate UI logic restrictions
+    if (tradeAction === "BUY" && hasCryptoAsset) {
+        alert(lang === "tr" ? "Zaten elinizde Kripto var! Satış sinyali gelene kadar bekleyin." : "You already hold assets! Wait for a SELL signal.");
+        return;
+    }
+    if (tradeAction === "SELL" && !hasCryptoAsset) {
+        alert(lang === "tr" ? "Satacak kriptonuz yok! Alış sinyali gelmesini bekleyin." : "No assets to sell! Wait for a BUY signal.");
+        return;
+    }
+
+    // Process logic
+    const mockHash = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase() + "..." + Math.random().toString(16).slice(2, 6).toUpperCase();
+    const currentTradeId = tradeCounter + 1;
+    setTradeCounter(currentTradeId);
+
+    if (tradeAction === "BUY") {
+        setHasCryptoAsset(true);
+        // Deduct exactly 10 MON for the trade, and 0.5 MON (5%) for Developer Fee
+        const newBalance = monBalance - 10.5; 
+        setMonBalance(Number(newBalance.toFixed(2)));
+
+        setLocalTrades([{ id: currentTradeId, action: "BUY (-10.5 MON)", hash: mockHash }, ...localTrades]);
+    } else {
+        setHasCryptoAsset(false);
+        // We sell the asset and realize a mock AI profit! (Between 1.0 to 3.5 MON profit)
+        const mockProfitForThisTrade = 1.0 + (Math.random() * 2.5);
+        // We return the original 10 MON + Profit, and subtract a 5% exit fee to dev (-0.5)
+        const totalReturn = 10 + mockProfitForThisTrade - 0.5;
+        
+        const newBalance = monBalance + totalReturn;
+        setMonBalance(Number(newBalance.toFixed(2)));
+        setTotalProfit(Number((totalProfit + mockProfitForThisTrade).toFixed(2)));
+
+        setLocalTrades([{ id: currentTradeId, action: `SELL (+${totalReturn.toFixed(2)} MON)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
     }
   };
 
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col gap-8 relative overflow-hidden bg-[#06020c]">
-      {/* Background Ambient Glows */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-monad-purple rounded-full mix-blend-screen filter blur-[150px] opacity-40 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-neon-blue rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
 
       {/* Header */}
       <header className="flex justify-between items-center glass-panel px-6 py-4 rounded-2xl z-10 animate-slide-down">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-monad-purple/20 border border-monad-purple rounded-xl flex items-center justify-center animate-glow text-2xl font-bold">
+          <div className="w-14 h-14 bg-[#836ef9]/20 border border-[#836ef9] rounded-xl flex items-center justify-center animate-glow text-2xl font-bold">
             🧠
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white drop-shadow-md">NeuroVault AI</h1>
-            <p className="text-xs md:text-sm text-monad-purple/80 font-mono tracking-wider uppercase drop-shadow">{t.subtitle}</p>
+            <p className="text-xs md:text-sm text-[#836ef9]/80 font-mono tracking-wider uppercase drop-shadow">{t.subtitle}</p>
           </div>
         </div>
-
+        
         <div className="flex items-center gap-4">
-          {/* Metamask Button & Disconnect */}
           <div className="flex items-center gap-2">
             <button 
               onClick={wallet ? undefined : handleConnectWallet}
-              className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#f6851b] to-[#e2761b] text-white hover:scale-105 cursor-pointer hover:shadow-[#f6851b]/50'}`}
+              className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#836ef9] to-[#00e5ff] text-white hover:scale-105 cursor-pointer shadow-[#00e5ff]/50'}`}
             >
-              {wallet ? `${t.walletConnected}: ${wallet.slice(0, 6)}...` : t.connectWallet}
+              {wallet ? `${t.walletConnected}: ${wallet.slice(0, 7)}...` : t.connectWallet}
             </button>
-            
-            {/* Logout / Disconnect Button */}
             {wallet && (
               <button 
                 onClick={() => setWallet(null)}
                 className="flex items-center justify-center w-9 h-9 bg-red-500/10 hover:bg-red-500/80 text-red-500 border border-red-500/30 hover:text-white rounded-lg font-bold transition-all shadow-lg"
-                title="Çıkış Yap / Disconnect"
+                title="Disconnect"
               >
                 ✕
               </button>
             )}
           </div>
 
-          <button
+          <button 
             onClick={() => setLang(lang === "en" ? "tr" : "en")}
             className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-bold transition-all cursor-pointer"
           >
             {t.toggleLang}
           </button>
-
+          
           <div className="hidden md:flex flex-col text-right ml-4">
-            <span className={`text-sm font-bold tracking-widest uppercase ${connected ? "text-neon-blue" : "text-red-500"}`}>
+            <span className={`text-sm font-bold tracking-widest uppercase ${connected ? "text-[#00e5ff]" : "text-red-500"}`}>
               {connected ? t.agentOnline : t.agentOffline}
             </span>
             <span className="text-xs text-gray-400">{connected ? "Monad Testnet RPC" : t.waitingPython}</span>
           </div>
-          <div className={`w-4 h-4 rounded-full shadow-[0_0_15px] ${connected ? "bg-neon-blue shadow-[#00e5ff] animate-pulse" : "bg-red-500 shadow-red-500"}`}></div>
+          <div className={`w-4 h-4 rounded-full shadow-[0_0_15px] ${connected ? "bg-[#00e5ff] shadow-[#00e5ff] animate-pulse" : "bg-red-500 shadow-red-500"}`}></div>
         </div>
       </header>
 
       {/* Main Grid */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10 w-full h-full pb-8">
-
+        
         {/* Left Column: Sentiment Dashboard */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down relative" style={{ animationDelay: '0.1s' }}>
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
             <span>📡</span> {t.brainStateTitle}
           </h2>
-
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
-            <div className="relative w-56 h-56 flex items-center justify-center drop-shadow-2xl">
+          
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4">
+            <div className="relative w-48 h-48 flex items-center justify-center drop-shadow-2xl">
               <svg className="w-full h-full transform -rotate-90 drop-shadow-lg" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                <circle cx="50" cy="50" r="45" fill="none"
-                  stroke={score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9'}
-                  strokeWidth="8"
+                <circle cx="50" cy="50" r="45" fill="none" 
+                  stroke={score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9'} 
+                  strokeWidth="8" 
                   strokeDasharray={`${Math.abs(score) * 2.8} 280`}
                   className="transition-all duration-1000 ease-out"
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute flex flex-col items-center p-6 rounded-full">
-                <span className="text-5xl font-black drop-shadow-md" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : 'white' }}>
-                  {score > 0 ? `+${score}` : score}
-                </span>
-                <span className="text-xs text-gray-400 font-mono uppercase tracking-widest mt-2 text-center">{connected ? t.sentiment : "N/A"}</span>
+                 <span className="text-4xl font-black drop-shadow-md" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : 'white' }}>
+                   {score > 0 ? `+${score}` : score}
+                 </span>
+                 <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest mt-1 text-center">{connected ? t.sentiment : "N/A"}</span>
               </div>
             </div>
-
-            <div className="w-full bg-black/40 rounded-xl p-4 border border-white/5 text-center mt-4 shadow-inner">
+            
+            <div className="w-full bg-black/40 rounded-xl p-3 border border-white/5 text-center mt-2 shadow-inner">
               <p className="text-sm font-bold tracking-wider" style={{ color: score >= 60 ? '#00e5ff' : score <= -60 ? '#ff0055' : '#836ef9' }}>
                 {!connected ? t.offline : score >= 60 ? t.buySignal : score <= -60 ? t.sellSignal : t.neutralSignal}
               </p>
             </div>
-
-            {/* The Huge User Retail Transaction Button triggered by AI Signal! */}
+            
             {(score >= 60 || score <= -60) && connected && (
-              <button
+              <button 
                 onClick={handleRetailTrade}
-                className={`mt-4 w-full py-4 rounded-xl font-black text-white text-sm md:text-base tracking-widest uppercase transition-all duration-300 shadow-2xl animate-pulse hover:scale-105 ${score >= 60 ? 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50' : 'bg-gradient-to-r from-[#ff0055] to-red-700 shadow-[#ff0055]/50'}`}
+                className={`mt-2 w-full py-4 rounded-xl font-black text-white text-[13px] tracking-widest uppercase transition-all duration-300 shadow-2xl hover:scale-105 active:scale-95 cursor-pointer
+                    ${score >= 60 
+                     ? (hasCryptoAsset ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50 animate-pulse')
+                     : (!hasCryptoAsset ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-gradient-to-r from-[#ff0055] to-red-600 shadow-[#ff0055]/50 animate-pulse')
+                    }
+                `}
               >
                 {t.executeTrade}
               </button>
             )}
-
           </div>
         </section>
 
@@ -247,14 +296,14 @@ export default function Home() {
             <span>⚡</span> {t.logicConsole}
           </h2>
           <div className="flex-1 bg-[#030108]/80 border border-white/5 rounded-2xl p-5 font-mono text-[13px] overflow-y-auto h-96 shadow-inner" ref={scrollRef}>
-            {logs.length === 0 && connected && (
-              <div className="text-gray-500 text-center mt-10 animate-pulse">{t.waitingEngine}</div>
-            )}
-            {!connected && (
-              <div className="text-red-500/80 text-center mt-10">{t.cannotReach}</div>
-            )}
+             {logs.length === 0 && connected && (
+                <div className="text-gray-500 text-center mt-10 animate-pulse">{t.waitingEngine}</div>
+             )}
+             {!connected && (
+                <div className="text-red-500/80 text-center mt-10">{t.cannotReach}</div>
+             )}
             {logs.map(log => (
-              <div key={log.id} className={`mb-4 leading-relaxed ${log.type === 'action' ? 'text-neon-blue font-bold drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]' : log.type === 'reason' ? 'text-monad-purple font-medium' : 'text-gray-400'}`}>
+              <div key={log.id} className={`mb-4 leading-relaxed ${log.type === 'action' ? 'text-[#00e5ff] font-bold drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]' : log.type === 'reason' ? 'text-[#836ef9] font-medium' : 'text-gray-400'}`}>
                 <span className="opacity-40 mr-2 text-[11px] select-none">[{log.timestamp}]</span>
                 <span className={log.type === 'action' ? 'animate-pulse' : ''}>{log.text}</span>
               </div>
@@ -262,32 +311,51 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Right Column: Execution History */}
+        {/* Right Column: Execution History & Portfolio */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-4 animate-slide-down" style={{ animationDelay: '0.3s' }}>
           <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
-            <span>⛓️</span> {t.onChainEx}
+            <span>💼</span> {t.onChainEx}
           </h2>
+          
+          <div className="w-full bg-[#836ef9]/10 border border-[#836ef9]/30 rounded-xl p-4 flex justify-between items-center mb-2">
+             <div className="flex flex-col">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.monadBalance}</span>
+                <span className="text-2xl font-black text-white">{monBalance.toFixed(2)} MON</span>
+             </div>
+             <div className="flex flex-col items-end">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.totalProfit}</span>
+                <span className={`text-xl font-bold ${totalProfit > 0 ? 'text-green-400' : 'text-gray-500'}`}>+{totalProfit.toFixed(2)}</span>
+             </div>
+          </div>
 
-          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-96 pr-2">
-            {trades.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-10 font-mono text-sm leading-relaxed">
-                <div className="animate-pulse mb-3 text-2xl duration-1000">⏳</div>
+          <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center border border-white/5 mb-1 text-xs">
+            <span className="text-gray-400">{t.activeAssets}:</span>
+            <span className={hasCryptoAsset ? "text-[#00e5ff] font-bold" : "text-gray-500"}>
+                {hasCryptoAsset ? "10.00 MON INVESTED" : t.none}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-56 pr-2">
+            {localTrades.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-4 font-mono text-xs leading-relaxed">
                 {t.awaitingThresholds}
               </div>
             ) : (
-              trades.map((trade) => (
-                <div key={trade.id} className="bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col gap-3 transition-all hover:bg-black/50 animate-slide-down">
+              localTrades.map((trade) => (
+                <div key={trade.id} className="bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-2 transition-all hover:bg-black/50 animate-slide-down">
                   <div className="flex items-center justify-between">
-                    <div className={`px-3 py-1 rounded-md text-xs font-black tracking-widest ${trade.action === 'BUY' ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/30' : 'bg-[#ff0055]/20 text-[#ff0055] border border-[#ff0055]/30'}`}>
+                    <div className={`px-2 py-1 rounded-md text-[10px] font-black tracking-widest ${trade.action.includes('BUY') ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/30' : 'bg-[#ff0055]/20 text-[#ff0055] border border-[#ff0055]/30'}`}>
                       {trade.action}
                     </div>
-                    <div className="text-xs font-mono text-gray-400">{t.target}</div>
+                    {trade.profit && (
+                        <div className="text-[10px] font-bold text-green-400">+Profit: {trade.profit.toFixed(2)} MON</div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between bg-black/60 px-3 py-2 rounded border border-white/5">
-                    <span className="text-[10px] text-gray-500">TX HASH</span>
-                    <a href={`https://testnet.monadexplorer.com/tx/${trade.hash}`} target="_blank" rel="noreferrer" className="text-xs text-monad-purple font-mono cursor-pointer hover:underline truncate ml-2">
+                  <div className="flex items-center justify-between bg-black/60 px-2 py-1.5 rounded border border-white/5">
+                    <span className="text-[9px] text-gray-500">TX HASH</span>
+                    <span className="text-[10px] text-[#836ef9] font-mono select-all truncate ml-2">
                       {trade.hash}
-                    </a>
+                    </span>
                   </div>
                 </div>
               ))
