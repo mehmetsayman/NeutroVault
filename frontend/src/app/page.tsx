@@ -155,13 +155,26 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Metamask Button */}
-          <button
-            onClick={wallet ? () => { } : handleConnectWallet}
-            className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#f6851b] to-[#e2761b] text-white hover:scale-105 cursor-pointer hover:shadow-[#f6851b]/50'}`}
-          >
-            {wallet ? `${t.walletConnected}: ${wallet.slice(0, 6)}...` : t.connectWallet}
-          </button>
+          {/* Metamask Button & Disconnect */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={wallet ? undefined : handleConnectWallet}
+              className={`px-4 py-2 font-black rounded-lg transition-all duration-300 shadow-lg ${wallet ? 'bg-gradient-to-r from-green-500 to-green-700 text-white cursor-default' : 'bg-gradient-to-r from-[#f6851b] to-[#e2761b] text-white hover:scale-105 cursor-pointer hover:shadow-[#f6851b]/50'}`}
+            >
+              {wallet ? `${t.walletConnected}: ${wallet.slice(0, 6)}...` : t.connectWallet}
+            </button>
+            
+            {/* Logout / Disconnect Button */}
+            {wallet && (
+              <button 
+                onClick={() => setWallet(null)}
+                className="flex items-center justify-center w-9 h-9 bg-red-500/10 hover:bg-red-500/80 text-red-500 border border-red-500/30 hover:text-white rounded-lg font-bold transition-all shadow-lg"
+                title="Çıkış Yap / Disconnect"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => setLang(lang === "en" ? "tr" : "en")}
