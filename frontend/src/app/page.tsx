@@ -49,7 +49,7 @@ const translations = {
     logicConsole: "Yapay Zeka Mantık Konsolu",
     waitingEngine: "Yapay zeka motorunun piyasayı taramaya başlaması bekleniyor...",
     cannotReach: "Arka plan sunucusuna ulaşılamıyor. Lütfen terminalden 'python main.py' başlatın.",
-    onChainEx: "Canlı Monad Portföyü (%5 Kom.",
+    onChainEx: "Canlı Monad Portföyü (%5 Kom.)",
     awaitingThresholds: "Para kazanma işlemlerinizi açmak için aşırı güçlü Yapay Zeka sinyalleri bekleniyor...",
     target: "Monad Ağı",
     toggleLang: "🇬🇧 EN",
@@ -72,9 +72,10 @@ export default function Home() {
   const [wallet, setWallet] = useState<string | null>(null);
 
   // --- MOCK PORTFOLIO SYSTEM FOR MVP PRESENTATION ---
-  const [monBalance, setMonBalance] = useState(100.00); // Start with 100 MON
+  const [monBalance, setMonBalance] = useState(100.00); 
   const [totalProfit, setTotalProfit] = useState(0.00);
-  const [hasCryptoAsset, setHasCryptoAsset] = useState(false); // Indicates if currently holding the coin
+  const [hasCryptoAsset, setHasCryptoAsset] = useState(false); 
+  const [developerCommission, setDeveloperCommission] = useState(0.00); // Sistem Sahibinin Kazandığı Komisyon
   const [localTrades, setLocalTrades] = useState<{ id: number; action: string; profit?: number; hash: string }[]>([]);
   const [tradeCounter, setTradeCounter] = useState(0);
 
@@ -96,8 +97,6 @@ export default function Home() {
         
         setScore(data.score);
         setLogs(data.logs);
-        // We no longer rely deeply on the Python background trades array.
-        // We will build our own retail trades array when the user clicks APPROVE.
         setConnected(true);
       } catch (err) {
         setConnected(false);
@@ -112,7 +111,6 @@ export default function Home() {
   const handleConnectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
-        // Bu komut, kullanıcının bilgisayarında "Hangi Cüzdanı Bağlamak İstersin?" ekranını ZORLA açtırır.
         await window.ethereum.request({
           method: 'wallet_requestPermissions',
           params: [{ eth_accounts: {} }]
@@ -129,8 +127,8 @@ export default function Home() {
 
   const DEVELOPER_WALLET = process.env.NEXT_PUBLIC_FEE_COLLECTOR || "0xYourHackerWalletAddressGoesHere0123456789"; 
 
-  // Retail Interactive Trade Execution
-  const handleRetailTrade = async () => {
+  // Retail Interactive Trade Execution (Supports forced mock action)
+  const handleRetailTrade = async (forcedAction?: "BUY" | "SELL") => {
     if (!wallet) {
       alert(lang === "tr" ? "Lütfen önce Cüzdanı bağlayın!" : "Please connect your wallet first!");
       return;
@@ -145,20 +143,18 @@ export default function Home() {
             });
         } catch (error) {
             console.warn("Metamask rejected or failed. Bypassing strictly for UI Demo purposes.", error);
-            // Sadece fütiristik bir uyarı verip PORTFÖYÜ GÜNCELLEMEYE DEVAM EDER!
-            // alert(lang === "tr" ? "Uyarı: Metamask bakiyesi yetersiz ama Demo Modunda işleme devam ediliyor!" : "Warning: Demo Mode bypass active!");
         }
     }
 
-    const tradeAction = score >= 60 ? "BUY" : "SELL";
+    const tradeAction = forcedAction ? forcedAction : (score >= 60 ? "BUY" : "SELL");
     
     // Simulate UI logic restrictions
     if (tradeAction === "BUY" && hasCryptoAsset) {
-        alert(lang === "tr" ? "Zaten elinizde Kripto var! Satış sinyali gelene kadar bekleyin." : "You already hold assets! Wait for a SELL signal.");
+        alert(lang === "tr" ? "Zaten elinizde varlık var! Satış sinyali gelmesini bekleyin." : "You already hold assets! Wait for a SELL signal.");
         return;
     }
     if (tradeAction === "SELL" && !hasCryptoAsset) {
-        alert(lang === "tr" ? "Satacak kriptonuz yok! Alış sinyali gelmesini bekleyin." : "No assets to sell! Wait for a BUY signal.");
+        alert(lang === "tr" ? "Satacak varlığınız yok! Alış sinyali gelmesini bekleyin." : "No assets to sell! Wait for a BUY signal.");
         return;
     }
 
@@ -172,18 +168,18 @@ export default function Home() {
         // Deduct exactly 10 MON for the trade, and 0.5 MON (5%) for Developer Fee
         const newBalance = monBalance - 10.5; 
         setMonBalance(Number(newBalance.toFixed(2)));
+        setDeveloperCommission(prev => Number((prev + 0.5).toFixed(2)));
 
         setLocalTrades([{ id: currentTradeId, action: "BUY (-10.5 MON)", hash: mockHash }, ...localTrades]);
     } else {
         setHasCryptoAsset(false);
-        // We sell the asset and realize a mock AI profit! (Between 1.0 to 3.5 MON profit)
         const mockProfitForThisTrade = 1.0 + (Math.random() * 2.5);
-        // We return the original 10 MON + Profit, and subtract a 5% exit fee to dev (-0.5)
         const totalReturn = 10 + mockProfitForThisTrade - 0.5;
         
         const newBalance = monBalance + totalReturn;
         setMonBalance(Number(newBalance.toFixed(2)));
         setTotalProfit(Number((totalProfit + mockProfitForThisTrade).toFixed(2)));
+        setDeveloperCommission(prev => Number((prev + 0.5).toFixed(2)));
 
         setLocalTrades([{ id: currentTradeId, action: `SELL (+${totalReturn.toFixed(2)} MON)`, hash: mockHash, profit: mockProfitForThisTrade }, ...localTrades]);
     }
@@ -260,7 +256,7 @@ export default function Home() {
          </div>
       </section>
 
-      {/* Main Grid */}
+      {/* Main Grid: 2 Columns Only */}
       <main className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 z-10 w-full h-full pb-8">
         
         {/* Left Column: Sentiment Dashboard */}
@@ -295,9 +291,10 @@ export default function Home() {
               </p>
             </div>
             
+            {/* The Main Dynamic Trade Button */}
             {(score >= 60 || score <= -60) && connected && (
               <button 
-                onClick={handleRetailTrade}
+                onClick={() => handleRetailTrade()}
                 className={`mt-2 w-full py-4 rounded-xl font-black text-white text-[13px] tracking-widest uppercase transition-all duration-300 shadow-2xl hover:scale-105 active:scale-95 cursor-pointer
                     ${score >= 60 
                      ? (hasCryptoAsset ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-gradient-to-r from-[#00e5ff] to-blue-600 shadow-[#00e5ff]/50 animate-pulse')
@@ -308,10 +305,25 @@ export default function Home() {
                 {t.executeTrade}
               </button>
             )}
+
+            {/* Hackathon Demo Force Buttons (Always visible to presenter) */}
+            <div className="flex gap-2 w-full mt-4">
+              <button 
+                onClick={() => handleRetailTrade("BUY")}
+                className="flex-1 py-1.5 border border-[#00e5ff]/30 text-[#00e5ff] text-[10px] font-bold uppercase rounded hover:bg-[#00e5ff]/20"
+              >
+                TEST: Alış Yap (BUY)
+              </button>
+              <button 
+                onClick={() => handleRetailTrade("SELL")}
+                className="flex-1 py-1.5 border border-[#ff0055]/30 text-[#ff0055] text-[10px] font-bold uppercase rounded hover:bg-[#ff0055]/20"
+              >
+                TEST: Satış Yap (SELL)
+              </button>
+            </div>
+
           </div>
         </section>
-
-
 
         {/* Right Column: Execution History & Portfolio */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-4 animate-slide-down" style={{ animationDelay: '0.3s' }}>
@@ -319,7 +331,7 @@ export default function Home() {
             <span>💼</span> {t.onChainEx}
           </h2>
           
-          <div className="w-full bg-[#836ef9]/10 border border-[#836ef9]/30 rounded-xl p-4 flex justify-between items-center mb-2">
+          <div className="w-full bg-[#836ef9]/10 border border-[#836ef9]/30 rounded-xl p-4 flex justify-between items-center mb-1">
              <div className="flex flex-col">
                 <span className="text-[10px] text-gray-400 uppercase tracking-widest">{t.monadBalance}</span>
                 <span className="text-2xl font-black text-white">{monBalance.toFixed(2)} MON</span>
@@ -330,14 +342,20 @@ export default function Home() {
              </div>
           </div>
 
-          <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center border border-white/5 mb-1 text-xs">
+          <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center border border-white/5 text-xs mb-1">
             <span className="text-gray-400">{t.activeAssets}:</span>
-            <span className={hasCryptoAsset ? "text-[#00e5ff] font-bold" : "text-gray-500"}>
+            <span className={hasCryptoAsset ? "text-[#00e5ff] font-bold animate-pulse" : "text-gray-500"}>
                 {hasCryptoAsset ? "10.00 MON INVESTED" : t.none}
             </span>
           </div>
 
-          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-56 pr-2">
+          {/* DEVELOPER COMMISSION EARNINGS PANEL */}
+          <div className="w-full bg-[#00e5ff]/10 border border-[#00e5ff]/30 rounded-xl p-3 flex justify-between items-center text-xs shadow-[0_0_10px_#00e5ff33]">
+            <span className="text-gray-300 font-semibold">{lang === "tr" ? "Kurum / Geliştirici Kârı:" : "Protocol Fee Earnings:"}</span>
+            <span className="text-[#00e5ff] font-black text-sm">+{developerCommission.toFixed(2)} MON 💰</span>
+          </div>
+
+          <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-40 pr-2">
             {localTrades.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-gray-500/60 p-4 font-mono text-xs leading-relaxed">
                 {t.awaitingThresholds}
