@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 contract NeuroVault {
     address public owner;
     address public agent;
-    uint256 public constant COMMISSION_PERCENT = 1; // 1%
+    uint256 public constant COMMISSION_PERCENT = 5; // 5%
     
     event Deposit(address indexed sender, uint256 amount);
     event TradeExecuted(address indexed user, int256 sentimentScore, uint256 tradeAmount, uint256 feePaid, string action);

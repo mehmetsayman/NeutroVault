@@ -23,13 +23,13 @@ const translations = {
     logicConsole: "Real-Time Logic Console",
     waitingEngine: "Waiting for AI engine to start polling market...",
     cannotReach: "Cannot reach background server. Please start 'python main.py' to pipe logs here.",
-    onChainEx: "Retail On-Chain Executions (1% Fee)",
+    onChainEx: "Retail On-Chain Executions (5% Fee)",
     awaitingThresholds: "Awaiting strong AI signals to unlock your trade opportunities...",
     target: "Monad DEX",
     toggleLang: "🇹🇷 TR",
     connectWallet: "🦊 Connect Wallet",
     walletConnected: "Connected",
-    executeTrade: "⚡ Execute AI Trade (1% Fee)"
+    executeTrade: "⚡ Execute AI Trade (5% Fee)"
   },
   tr: {
     subtitle: "Merkeziyetsiz Perakende Yapay Zeka Sinyalleri",
@@ -45,13 +45,13 @@ const translations = {
     logicConsole: "Yapay Zeka Mantık Konsolu",
     waitingEngine: "Yapay zeka motorunun piyasayı taramaya başlaması bekleniyor...",
     cannotReach: "Arka plan sunucusuna ulaşılamıyor. Lütfen terminalden 'python main.py' başlatın.",
-    onChainEx: "Perakende Zincir İçi İşlemler (%1 Komisyon)",
+    onChainEx: "Perakende Zincir İçi İşlemler (%5 Komisyon)",
     awaitingThresholds: "Para kazanma işlemlerinizi açmak için aşırı güçlü Yapay Zeka sinyalleri bekleniyor...",
     target: "Monad Akıllı Sözleşmesi",
     toggleLang: "🇬🇧 EN",
     connectWallet: "🦊 Cüzdan Bağla",
     walletConnected: "Cüzdan Bağlı",
-    executeTrade: "⚡ Yapay Zeka Fırsatını Onayla (%1 Komisyon)"
+    executeTrade: "⚡ Yapay Zeka Fırsatını Onayla (%5 Komisyon)"
   }
 };
 
@@ -119,18 +119,18 @@ export default function Home() {
     }
 
     try {
-      // 0.01 MON (%1 Komisyon bedeli) değerindeki işlemi Geliştirici cüzdanına yollar
+      // 0.05 MON (%5 Komisyon bedeli) değerindeki işlemi Geliştirici cüzdanına yollar
       await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [
           {
             from: wallet,
             to: DEVELOPER_WALLET, // Komisyonların gideceği Cüzdan
-            value: '0x2386F26FC10000', // 0.01 in Wei (0.01 MON)
+            value: '0xB1A2BC2EC50000', // 0.05 MON in Wei
           },
         ],
       });
-      alert(`✅ İşlem Onaylandı! %1 Kurum Komisyonu (${DEVELOPER_WALLET}) hesabına aktarıldı ve asıl takas Monad ağına gönderildi!`);
+      alert(`✅ İşlem Onaylandı! %5 Kurum Komisyonu (${DEVELOPER_WALLET}) hesabına aktarıldı ve asıl takas Monad ağına gönderildi!`);
     } catch (error) {
       console.error("Transaction failed or rejected", error);
     }
