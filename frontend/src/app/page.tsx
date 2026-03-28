@@ -65,6 +65,42 @@ const translations = {
   }
 };
 
+const MONAD_TESTNET_CHAIN_ID = '0x279f'; // 10143 in Hex
+
+const ensureMonadNetwork = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) return false;
+    try {
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== MONAD_TESTNET_CHAIN_ID) {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: MONAD_TESTNET_CHAIN_ID }],
+        });
+      }
+      return true;
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+                chainId: MONAD_TESTNET_CHAIN_ID,
+                chainName: 'Monad Testnet',
+                nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+                rpcUrls: ['https://testnet-rpc.monad.xyz/'],
+                blockExplorerUrls: ['https://testnet.monadexplorer.com/']
+            }],
+          });
+          return true;
+        } catch (addError) {
+          console.error(addError);
+          return false;
+        }
+      }
+      return false;
+    }
+};
+
 export default function Home() {
   const [lang, setLang] = useState<"en" | "tr">("en");
   const [score, setScore] = useState(0);
@@ -173,6 +209,11 @@ useEffect(() => {
   const handleConnectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
+        const isMonad = await ensureMonadNetwork();
+        if (!isMonad) {
+           alert(lang === "tr" ? "Monad Testnet ağına geçiş yapılamadı! İşlemler başarısız olabilir." : "Failed to switch to Monad Testnet.");
+        }
+
         await window.ethereum.request({
           method: 'wallet_requestPermissions',
           params: [{ eth_accounts: {} }]
@@ -224,6 +265,7 @@ useEffect(() => {
     // GERÇEK METAMASK İŞLEM ONAYI - Eğer Reddedilirse Sistem Duraklar (Strict Mode)
     if (typeof window.ethereum !== 'undefined' && wallet.startsWith("0x")) {
         try {
+            await ensureMonadNetwork();
             const weiFee = BigInt(Math.floor(feeSize * 1e18));
             const hexFee = '0x' + weiFee.toString(16);
 
