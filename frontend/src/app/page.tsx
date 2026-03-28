@@ -242,8 +242,26 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Top Ticker: Live API Status */}
+      <section className="glass-panel px-6 py-3 rounded-2xl flex items-center justify-between animate-slide-down z-10 w-full">
+         <div className="flex items-center gap-3 w-full">
+            <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-[#00e5ff] shadow-[0_0_8px_#00e5ff] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_red]'}`}></div>
+            <span className="text-xs font-mono font-bold text-gray-400 whitespace-nowrap hidden sm:block">AI SERVER STATUS:</span>
+            <div className="flex-1 overflow-hidden">
+                {logs.length > 0 ? (
+                    <div className="text-[13px] font-mono text-[#00e5ff] truncate animate-pulse relative">
+                        <span className="opacity-50 mr-2">[{logs[logs.length-1]?.timestamp}]</span> 
+                        {logs[logs.length-1]?.text}
+                    </div>
+                ) : (
+                    <div className="text-[13px] font-mono text-gray-500 animate-pulse">{connected ? t.waitingEngine : t.cannotReach}</div>
+                )}
+            </div>
+         </div>
+      </section>
+
       {/* Main Grid */}
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10 w-full h-full pb-8">
+      <main className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 z-10 w-full h-full pb-8">
         
         {/* Left Column: Sentiment Dashboard */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-6 animate-slide-down relative" style={{ animationDelay: '0.1s' }}>
@@ -293,26 +311,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Middle Column: Terminal Feed */}
-        <section className="glass-panel p-6 rounded-3xl flex flex-col gap-4 animate-slide-down lg:col-span-1" style={{ animationDelay: '0.2s' }}>
-          <h2 className="text-lg font-mono font-semibold text-gray-300 border-b border-white/10 pb-3 flex items-center gap-2">
-            <span>⚡</span> {t.logicConsole}
-          </h2>
-          <div className="flex-1 bg-[#030108]/80 border border-white/5 rounded-2xl p-5 font-mono text-[13px] overflow-y-auto h-96 shadow-inner" ref={scrollRef}>
-             {logs.length === 0 && connected && (
-                <div className="text-gray-500 text-center mt-10 animate-pulse">{t.waitingEngine}</div>
-             )}
-             {!connected && (
-                <div className="text-red-500/80 text-center mt-10">{t.cannotReach}</div>
-             )}
-            {logs.map(log => (
-              <div key={log.id} className={`mb-4 leading-relaxed ${log.type === 'action' ? 'text-[#00e5ff] font-bold drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]' : log.type === 'reason' ? 'text-[#836ef9] font-medium' : 'text-gray-400'}`}>
-                <span className="opacity-40 mr-2 text-[11px] select-none">[{log.timestamp}]</span>
-                <span className={log.type === 'action' ? 'animate-pulse' : ''}>{log.text}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+
 
         {/* Right Column: Execution History & Portfolio */}
         <section className="glass-panel p-6 rounded-3xl flex flex-col gap-4 animate-slide-down" style={{ animationDelay: '0.3s' }}>
