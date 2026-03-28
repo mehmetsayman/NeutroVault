@@ -112,17 +112,18 @@ export default function Home() {
   const handleConnectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
+        // Bu komut, kullanıcının bilgisayarında "Hangi Cüzdanı Bağlamak İstersin?" ekranını ZORLA açtırır.
+        await window.ethereum.request({
+          method: 'wallet_requestPermissions',
+          params: [{ eth_accounts: {} }]
+        });
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setWallet(accounts[0]);
       } catch (error) {
         console.error("Wallet connection denied", error);
-        // Fallback demo wallet if user cancels metamask for the hackathon
-        setWallet("0xD3m0...C0d3");
       }
     } else {
-      // If no metamask, fake the connection perfectly so presentation logic isn't blocked.
-      alert("Metamask eklentisi bulunamadı! Demo modu aktifleştiriliyor.");
-      setWallet("Demo_0x12..9x");
+      alert("Metamask eklentisi bulunamadı! Lütfen yükleyin.");
     }
   };
 
@@ -135,15 +136,19 @@ export default function Home() {
       return;
     }
     
-    // Attempt Metamask Transaction silently
+    // Sıkı (Strict) Metamask İşlem Onayı
     if (typeof window.ethereum !== 'undefined') {
         try {
+            // Cüzdandan %5 Komisyon (0.05 MON) kesilme isteğini Metamask'a iletir
             await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{from: wallet, to: DEVELOPER_WALLET, value: '0xB1A2BC2EC50000'}],
+               method: 'eth_sendTransaction',
+               params: [{from: wallet, to: DEVELOPER_WALLET, value: '0xB1A2BC2EC50000'}],
             });
+            // Eğer kullanıcı Onayla tuşuna basarsa burayı geçer ve Portföye yazar.
         } catch (error) {
-            console.log("Metamask TX ignored, relying on Local Demo State");
+            console.error(error);
+            alert(lang === "tr" ? "❌ Metamask işlemi iptal edildi veya başarısız oldu! (Bakiye veya Ağ hatası). İşlem portföye YANSIMADI." : "❌ Transaction rejected or failed!");
+            return; // KULLANICI İŞLEMİ REDDEDERSE ÇALIŞMAYI DURDURUR!
         }
     }
 
